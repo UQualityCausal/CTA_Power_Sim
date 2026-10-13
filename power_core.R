@@ -49,7 +49,7 @@ get_beta_params = function(p0, p.cv){
 #' and W (weight).
 #' @examples
 #' p = get_beta_params(1/3, 0.5)
-#' d = simulate_cohort(100, p["alpha"], p["beta"], estimand = "ATE")
+#' co = simulate_cohort(100, p["alpha"], p["beta"], estimand = "ATE")
 simulate_cohort = function(n, alpha, beta, estimand = c("ATE", "ATT")){
   estimand = match.arg(estimand)
 
@@ -67,4 +67,63 @@ simulate_cohort = function(n, alpha, beta, estimand = c("ATE", "ATT")){
   }
   
   data.frame(e = e, X = X, W = W)
+}
+
+#' Combine potential outcomes into observed outcomes
+#' 
+#' For every pair of columns <name>0 / <name>1 in po, creates the observed 
+#' column <name> = <name>1 if treated (X = 1), <name>0 otherwise. Columns in po
+#' that are not part of a pair (e.g., baseline Yb, offset log_fu) are carried
+#' along unchanged.
+#' 
+#' @param cohort Data frame from simulate_cohort, with 0/1 column X.
+#' @param po Data frame of potential outcomes, same number of rows as cohort.
+#' @param keep_po If true, also keep the potential outcome columns (useful for
+#'                checking the true effect, e.g., mean(Yf1 - Yf0)).
+#' @returns cohort with observed outcome columns (and other po columns) added.
+#' @examples 
+#' p = get_beta_params(1/3, 0.5)
+#' co = simulate_cohort(100, p["alpha"], p["beta"], estimand = "ATE")
+#' po = data.frame(Yb = rnorm(100), Yf0 = rnorm(100), Yf1 = rnorm(100))
+#' combine_outcomes(co, po)
+combine_outcomes = function(cohort, po, keep_po = FALSE) {
+  # cohort: data.frame with X (from simulate_cohort)
+  # po:     data.frame with Y0, Y1
+  # return: cohort plus observed Y = Y1 if X == 1, else Y0
+  # input checks
+  if (nrow(cohort) != nrow(po)){
+    stop("cohort and po must have the same number of rows")
+  }
+  if (!all(cohort$X %in% c(0,1))){
+    stop("cohort$X must be coded 0/1")
+  }
+  
+  # find complete pairs: <name>0 and <name>1 both present -> potential outcomes
+  nm0 = grep("0$", names(po), value = TRUE)
+  base = sub("0$", "", nm0)
+  base = base[paste0(base, "1") %in% names(po)]
+  if (length(base) == 0){
+    stop("po has no <name>0 / <name>1 column pairs")
+  }
+  
+  pair_cols = c(paste0(base, "0"), paste0(base, "1"))
+  other = setdiff(names(po), pair_cols)
+  
+  # don't silently overwrite cohort columns
+  new_cols = c(base, other, if (keep_po) pair_cols)
+  clash = intersect(new_cols, names(cohort))
+  if (length(clash) > 0){
+    stop("column name(s) already in cohort: ", paste(clash, collapse = ", "))
+  }
+  
+  # observed outcome = potential outcome under the treatment actually received
+  pbs = lapply(base, function(b)
+    ifelse(cohort$X == 1, po[[paste0(b, "1")]], po[[paste0(b, "0")]]))
+  names(obs) = base
+  
+  out = cbind(cohort, po[other], as.data.frame(obs))
+  if (keep_po){
+    out = cbind(out, po[pair_cols])
+  }
+  out
 }
