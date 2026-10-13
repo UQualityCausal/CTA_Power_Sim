@@ -1,3 +1,6 @@
+## power_core.R: shared functions for CTA power simulations
+## Defines functions only: no runs, no seeds, no file output.
+
 #' Beta parameters for simulated propensity scores
 #' 
 #' Propensity scores are simulated from a Beta distribution because it is
@@ -34,8 +37,7 @@ get_beta_params = function(p0, p.cv){
   c(alpha = alpha, beta = beta)
 }
 
-#' Simulate a cohort with propensity scores, treatment, and IPT wights
-#' 
+#' Simulate a cohort with propensity scores, treatment, and IPT weights
 #' Draw propensity score from Beta(alpha, beta), assigns treatment as Bernoulli(e),
 #' and computes inverse probability of treatment weights for the chosen estimand
 #' 
