@@ -9,7 +9,7 @@
 #' matching Beta(alpha, beta) parameters and checks that the specification is 
 #' possible. 
 #' 
-#' @param p0 Mean propensity score (expected proportion treated), in (0, 1).
+#' @param p0   Mean propensity score (expected proportion treated), in (0, 1).
 #' @param p.cv Coefficient of variation of the propensity score, >0.  
 #'             Must be below sqrt((1-p0) / p0).
 #' @returns Named numeric vector c(alpha = , beta = ). 
@@ -22,7 +22,7 @@ get_beta_params = function(p0, p.cv){
   if (p.cv <= 0) stop("p.cv must be > 0")
   
   max_cv = sqrt((1-p0)/p0)
-  if (p.cv > max_cv)
+  if (p.cv >= max_cv)
     stop(sprintf("p.cv = %.2f is impossible for p0 = %.2f (must be < %.2f)", 
                  p.cv, p0, max_cv))
 
@@ -38,14 +38,15 @@ get_beta_params = function(p0, p.cv){
 }
 
 #' Simulate a cohort with propensity scores, treatment, and IPT weights
+#' 
 #' Draw propensity score from Beta(alpha, beta), assigns treatment as Bernoulli(e),
 #' and computes inverse probability of treatment weights for the chosen estimand
 #' 
-#' @param n Cohort size.
-#' @param alpha First shape parameter of the propensity score Beta distribution.
-#' @param beta Second shape parameter.
+#' @param n        Cohort size.
+#' @param alpha    First shape parameter of the propensity score Beta distribution.
+#' @param beta     Second shape parameter.
 #' @param estimand "ATE" (average treatment effect) or "ATT" (effect on the treated).
-#' @returns Data frame with with columns e (propensity score), X (0/1 treatment),
+#' @returns Data frame with columns e (propensity score), X (0/1 treatment),
 #' and W (weight).
 #' @examples
 #' p = get_beta_params(1/3, 0.5)
@@ -89,8 +90,8 @@ ps_z = function(e, p0, p.cv) {
 #' that are not part of a pair (e.g., baseline Yb, offset log_fu) are carried
 #' along unchanged.
 #' 
-#' @param cohort Data frame from simulate_cohort, with 0/1 column X.
-#' @param po Data frame of potential outcomes, same number of rows as cohort.
+#' @param cohort  Data frame from simulate_cohort, with 0/1 column X.
+#' @param po      Data frame of potential outcomes, same number of rows as cohort.
 #' @param keep_po If true, also keep the potential outcome columns (useful for
 #'                checking the true effect, e.g., mean(Yf1 - Yf0)).
 #' @returns cohort with observed outcome columns (and other po columns) added.
