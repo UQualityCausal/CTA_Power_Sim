@@ -83,6 +83,23 @@ ps_z = function(e, p0, p.cv) {
   (e - p0) / (p.cv * p0)
 }
 
+#' Simulate a binary effect modifier
+#'
+#' Each person has EF = 1 with probability pi_ef, independent of their
+#' propensity score and treatment (so EF is not a confounder).
+#'
+#' @param n     Number of people (same n as the cohort).
+#' @param pi_ef Proportion of people with EF = 1, strictly between 0 and 1.
+#' @returns Integer vector of 0/1 values, length n.
+#' @examples
+#' co$ef = sim_ef(1000, 0.2)
+#' mean(co$ef)   # about 0.2
+sim_ef = function(n, pi_ef) {
+  # input check
+  if (pi_ef <= 0 || pi_ef >= 1) stop("pi_ef should be strictly between 0 and 1")
+  rbinom(n, 1, pi_ef)
+}
+
 #' Combine potential outcomes into observed outcomes
 #' 
 #' For every pair of columns <name>0 / <name>1 in po, creates the observed 
