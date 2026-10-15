@@ -69,6 +69,19 @@ simulate_cohort = function(n, alpha, beta, estimand = c("ATE", "ATT")){
   data.frame(e = e, X = X, W = W)
 }
 
+#' Standardized propensity score
+#'
+#' Puts the propensity score on an SD scale (mean 0, SD 1), so confounding
+#' strength means the same thing whatever p0 and p.cv are.
+#'
+#' @param e    Propensity scores.
+#' @param p0   Mean propensity score (same value given to get_beta_params()).
+#' @param p.cv Propensity score CV (same value given to get_beta_params()).
+#' @returns Numeric vector z = (e - p0) / (p.cv * p0).
+ps_z = function(e, p0, p.cv) {
+  (e - p0) / (p.cv * p0)
+}
+
 #' Combine potential outcomes into observed outcomes
 #' 
 #' For every pair of columns <name>0 / <name>1 in po, creates the observed 
@@ -85,11 +98,8 @@ simulate_cohort = function(n, alpha, beta, estimand = c("ATE", "ATT")){
 #' p = get_beta_params(1/3, 0.5)
 #' co = simulate_cohort(100, p["alpha"], p["beta"], estimand = "ATE")
 #' po = data.frame(Yb = rnorm(100), Yf0 = rnorm(100), Yf1 = rnorm(100))
-#' combine_outcomes(co, po)
+#' d = combine_outcomes(co, po)
 combine_outcomes = function(cohort, po, keep_po = FALSE) {
-  # cohort: data.frame with X (from simulate_cohort)
-  # po:     data.frame with Y0, Y1
-  # return: cohort plus observed Y = Y1 if X == 1, else Y0
   # input checks
   if (nrow(cohort) != nrow(po)){
     stop("cohort and po must have the same number of rows")
@@ -117,7 +127,7 @@ combine_outcomes = function(cohort, po, keep_po = FALSE) {
   }
   
   # observed outcome = potential outcome under the treatment actually received
-  pbs = lapply(base, function(b)
+  obs = lapply(base, function(b)
     ifelse(cohort$X == 1, po[[paste0(b, "1")]], po[[paste0(b, "0")]]))
   names(obs) = base
   
