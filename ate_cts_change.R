@@ -100,6 +100,7 @@ sim_power = function(n, p0, p.cv, sd_chg, conf, delta, nsim = 1000,
              power    = mean(abs(res[, "est"] / res[, "se"]) > crit))
 }
 
+if (FALSE){
 # Examples
 ## 1. Basic call: pTau217, rho = 0.5, low PS variation, small confounding
 set.seed(1)
@@ -152,3 +153,4 @@ curve = do.call(rbind, lapply(deltas, function(dl) {
                   nsim = 200, alpha_adj = 0.0125))
 }))
 curve
+}

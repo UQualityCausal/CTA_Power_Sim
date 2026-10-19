@@ -62,8 +62,10 @@ sim_po_surv = function(e, py0, Ymax, HRy = 1, TOR, p0, p.cv) {
 
 #' IPTW estimate and robust SE for the log hazard ratio
 #'
-#' Weighted Cox model with IPT weights; returns the log of the marginal hazard
-#' ratio (treated vs untreated) and its robust (design-based) SE.
+#' Weighted Cox model with IPT weights, fit with survival::coxph() and a
+#' robust (sandwich) SE. Gives the same estimate and robust SE as
+#' survey::svycoxph() with svydesign(ids = ~1, weights = ~W) (up to a factor
+#' sqrt(n/(n-1))), but is faster on large data.
 #'
 #' @param d Data frame from combine_outcomes(), with Y (follow-up time),
 #'          D (event indicator: 1 = event, 0 = censored), X (0/1 treatment)
@@ -71,11 +73,11 @@ sim_po_surv = function(e, py0, Ymax, HRy = 1, TOR, p0, p.cv) {
 #' @returns c(est = , se = ): estimated log hazard ratio and its robust SE.
 #'          exp(est) is the hazard ratio.
 est_iptw_surv = function(d) {
-  des = survey::svydesign(ids = ~1, weights = ~W, data = d)
-  fit = survey::svycoxph(survival::Surv(Y, D) ~ X, design = des)
+  fit = survival::coxph(survival::Surv(Y, D) ~ X, data = d,
+                        weights = W, robust = TRUE)
   
-  est = coef(fit)["X"]                    # log HR
-  se  = sqrt(diag(vcov(fit)))["X"]         # robust SE of log HR
+  est = coef(fit)["X"]                        # log HR
+  se  = sqrt(diag(vcov(fit)))["X"]            # robust SE (vcov is robust when robust = TRUE)
   
   c(est = unname(est), se = unname(se))
 }
@@ -123,6 +125,7 @@ sim_power_surv = function(n, p0, p.cv, py0, Ymax, HRy = 1, TOR,
 }
 
 # Examples
+if (FALSE){
 ## 1. No effect: power should be about alpha_adj
 set.seed(1)
 sim_power_surv(n = 2022, p0 = 1/4, p.cv = 0.25, py0 = 251/2022, Ymax = 10,
@@ -139,3 +142,4 @@ out
 set.seed(3)
 sim_power_surv(2022, p0 = 1/4, p.cv = 0.25, py0 = 251/2022, Ymax = 10,
                HRy = 2, TOR = 0.62, nsim = 1000, alpha_adj = 0.05)
+}

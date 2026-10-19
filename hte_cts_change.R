@@ -66,9 +66,8 @@ est_iptw_hte = function(d) {
   des = survey::svydesign(ids = ~1, weights = ~W, data = d)
   fit = survey::svyglm(chg ~ X * EF, design = des) # X + EF + X:EF
   
-  cf  = summary(fit)$coefficients
-  est = cf["X:EF", "Estimate"]
-  se  = cf["X:EF", "Std. Error"]
+  est = summary(fit)$coefficients["X:EF", "Estimate"]
+  se  = summary(fit)$coefficients["X:EF", "Std. Error"]
   
   c(est = unname(est), se = unname(se))
 }
@@ -117,6 +116,7 @@ sim_power_hte = function(n, pi_ef, p0, p.cv, sd_chg, conf, delta, delta_mod,
              power    = mean(abs(res[, "est"] / res[, "se"]) > crit))
 }
 
+if (FALSE){
 # Examples
 ## 1. No effect modification: power should be about alpha_adj
 set.seed(1)
@@ -145,3 +145,4 @@ sim_power_hte(1000, pi_ef = 0.2, p0 = 1/3, p.cv = 0.25, sd_chg = 1.25,
               conf = 0.1, delta = 1, delta_mod = 0.5, b_ef = 0.5,
               nsim = 200, alpha_adj = 0.05)
 #   mean_se and power about the same as example 2
+}
