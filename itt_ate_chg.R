@@ -1,4 +1,3 @@
-## ate_cts_change.R
 ## Power for the ATE on change in continuous variable (e.g., blood biomarker),
 ## baseline to one follow-up
 source("power_core.R")
@@ -51,8 +50,8 @@ sim_po_chg = function(e, delta, sd_chg, conf = 0, p0, p.cv){
 #' @returns c(est = , se = ): weighted difference in mean change (treated minus
 #'          control) and its robust SE, original units.
 #' @examples 
-#' res = est_iptw(d)
-est_iptw=function(d){
+#' res = est_itt_ate_chg(d)
+est_itt_ate_chg=function(d){
   des = survey::svydesign(ids = ~1, weights = ~W, data =d)
   fit = survey::svyglm(chg~X, design = des)
   
@@ -81,7 +80,7 @@ est_iptw=function(d){
 #'   mean_se   average robust SE (close to emp_sd = SE is accurate)
 #'   power     share of datasets that reject H0: effect = 0
 #' See the examples at the bottom of this file.
-sim_power = function(n, p0, p.cv, sd_chg, conf, delta, nsim = 1000,
+power_itt_ate_chg = function(n, p0, p.cv, sd_chg, conf, delta, nsim = 1000,
                      alpha_adj = 0.05) {
   bp   = get_beta_params(p0, p.cv)      # once per setting
   crit = qnorm(1 - alpha_adj / 2)  # critical value from alpha_adj
@@ -91,7 +90,7 @@ sim_power = function(n, p0, p.cv, sd_chg, conf, delta, nsim = 1000,
     po = sim_po_chg(co$e, delta = delta, sd_chg = sd_chg, conf = conf, 
                     p0 = p0, p.cv = p.cv) # potential outcomes
     d  = combine_outcomes(co, po) # observed data
-    est_iptw(d) # c(est, se)
+    est_itt_ate_chg(d) # c(est, se)
   }))
   
   data.frame(mean_est = mean(res[, "est"]),
@@ -104,7 +103,7 @@ if (FALSE){
 # Examples
 ## 1. Basic call: pTau217, rho = 0.5, low PS variation, small confounding
 set.seed(1)
-sim_power(n = 1000, p0 = 1/3, p.cv = 0.25,
+power_itt_ate_chg(n = 1000, p0 = 1/3, p.cv = 0.25,
           sd_chg = sd_change(1.25, 1.25, 0.5),     # = 1.25
           conf = 0.1, delta = 0.3,
           nsim = 200, alpha_adj = 0.05 / 4)
@@ -113,23 +112,23 @@ sim_power(n = 1000, p0 = 1/3, p.cv = 0.25,
 
 ## 2. No effect: power should be about alpha_adj (type I error check)
 set.seed(2)
-sim_power(1000, 1/3, 0.25, sd_chg = 1.25, conf = 0.1, delta = 0,
+power_itt_ate_chg(1000, 1/3, 0.25, sd_chg = 1.25, conf = 0.1, delta = 0,
           nsim = 1000, alpha_adj = 0.0125)
 #   mean_est ~0   power ~0.0125
 
 
 ## 3. Effect of propensity score variation: more variation, less power
 set.seed(3)
-sim_power(1000, 1/3, p.cv = 0.25, sd_chg = 1.25, conf = 0, delta = 0.2,
+power_itt_ate_chg(1000, 1/3, p.cv = 0.25, sd_chg = 1.25, conf = 0, delta = 0.2,
           nsim = 200, alpha_adj = 0.0125)          # power ~0.42
-sim_power(1000, 1/3, p.cv = 0.50, sd_chg = 1.25, conf = 0, delta = 0.2,
+power_itt_ate_chg(1000, 1/3, p.cv = 0.50, sd_chg = 1.25, conf = 0, delta = 0.2,
           nsim = 200, alpha_adj = 0.0125)          # power ~0.33
 
 
 ## 4. Effect of rho: higher correlation, smaller change SD, more power
 for (r in c(0.3, 0.5, 0.7)) {
   set.seed(4)
-  out = sim_power(1000, 1/3, 0.25, sd_chg = sd_change(1.25, 1.25, r),
+  out = power_itt_ate_chg(1000, 1/3, 0.25, sd_chg = sd_change(1.25, 1.25, r),
                   conf = 0, delta = 0.2, nsim = 200, alpha_adj = 0.0125)
   cat("rho =", r, " power =", out$power, "\n")
 }
@@ -137,9 +136,9 @@ for (r in c(0.3, 0.5, 0.7)) {
 
 ## 5. With vs. without confounding (same everything else)
 set.seed(5)
-sim_power(1000, 1/3, 0.25, sd_chg = 1.25, conf = 0,   delta = 0.2,
+power_itt_ate_chg(1000, 1/3, 0.25, sd_chg = 1.25, conf = 0,   delta = 0.2,
           nsim = 200, alpha_adj = 0.0125)
-sim_power(1000, 1/3, 0.25, sd_chg = 1.25, conf = 0.3, delta = 0.2,
+power_itt_ate_chg(1000, 1/3, 0.25, sd_chg = 1.25, conf = 0.3, delta = 0.2,
           nsim = 200, alpha_adj = 0.0125)
 # mean_est stays ~0.2 in both (IPTW removes the bias); power drops a little
 
@@ -149,7 +148,7 @@ deltas = c(0.1, 0.15, 0.2, 0.25, 0.3)
 curve = do.call(rbind, lapply(deltas, function(dl) {
   set.seed(6)
   cbind(delta = dl,
-        sim_power(1000, 1/3, 0.25, sd_chg = 1.25, conf = 0.1, delta = dl,
+        power_itt_ate_chg(1000, 1/3, 0.25, sd_chg = 1.25, conf = 0.1, delta = dl,
                   nsim = 200, alpha_adj = 0.0125))
 }))
 curve

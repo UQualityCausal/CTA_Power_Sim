@@ -1,4 +1,3 @@
-## ate_surv.R
 ## Power for the ATE (marginal hazard ratio) on a time-to-event outcome,
 ## IPTW Cox with simulated propensity scores. Original units throughout.
 source("power_core.R")
@@ -14,7 +13,7 @@ source("power_core.R")
 #'                 censoring time. Must be > 0.
 #' @returns Hazard rate lambda.
 #' @examples
-#' rate_from_risk(251/2022, 10)   # 0.01324
+#' rate_from_risk(251/2022, 10)   # 0.01325
 rate_from_risk = function(p_event0, tau){
   # input checks
   if (p_event0 <= 0 || p_event0 >=1) stop("p_event0 should be strictly between 0 and 1")
@@ -27,13 +26,12 @@ rate_from_risk = function(p_event0, tau){
 #' Exponential event times with log hazard
 #'   untreated: mu0 = b0 + b1 * ps_cv(e, p0, p.cv)
 #'   treated:   mu1 = mu0 + log(TOR)
-#' where b0 = log(py0 / Ymax) and b1 = log(HRy). Times are censored at Ymax.
+#' where b0 = log(rate_from_risk(py0, Ymax)) and b1 = log(HRy). Times are censored at Ymax.
 #'
 #' @param e    Propensity scores, from simulate_cohort()$e.
 #' @param py0  Untreated event rate by Ymax at PS = p0.
 #' @param Ymax Follow-up length = administrative censoring time (years).
-#' @param HRy  Confounding: HR per 1-CV increase in the PS, untreated.
-#'             1 = no confounding.
+#' @param HRy  Confounding: HR per 1-CV increase in the PS. 1 = no confounding.
 #' @param TOR  Treatment hazard ratio.
 #' @param p0   Mean propensity score (same as in get_beta_params()).
 #' @param p.cv Propensity score CV (same as in get_beta_params()).
@@ -72,7 +70,7 @@ sim_po_surv = function(e, py0, Ymax, HRy = 1, TOR, p0, p.cv) {
 #'          and W (IPT weight).
 #' @returns c(est = , se = ): estimated log hazard ratio and its robust SE.
 #'          exp(est) is the hazard ratio.
-est_iptw_surv = function(d) {
+est_itt_ate_surv = function(d) {
   fit = survival::coxph(survival::Surv(Y, D) ~ X, data = d,
                         weights = W, robust = TRUE)
   
@@ -103,7 +101,7 @@ est_iptw_surv = function(d) {
 #'   power        share of datasets that reject H0: HR = 1
 #'   
 #' See the examples at the bottom of this file.
-sim_power_surv = function(n, p0, p.cv, py0, Ymax, HRy = 1, TOR,
+power_itt_ate_surv = function(n, p0, p.cv, py0, Ymax, HRy = 1, TOR,
                           nsim = 1000, alpha_adj = 0.05) {
   bp   = get_beta_params(p0, p.cv)
   crit = qnorm(1 - alpha_adj / 2)
@@ -113,7 +111,7 @@ sim_power_surv = function(n, p0, p.cv, py0, Ymax, HRy = 1, TOR,
     po = sim_po_surv(e = co$e, py0 = py0, Ymax = Ymax, HRy = HRy, TOR = TOR,
                      p0 = p0, p.cv = p.cv)
     d  = combine_outcomes(co, po)
-    c(est_iptw_surv(d), events = sum(d$D))
+    c(est_itt_ate_surv(d), events = sum(d$D))
   }))
   
   data.frame(mean_est    = mean(res[, "est"]),
@@ -128,18 +126,18 @@ sim_power_surv = function(n, p0, p.cv, py0, Ymax, HRy = 1, TOR,
 if (FALSE){
 ## 1. No effect: power should be about alpha_adj
 set.seed(1)
-sim_power_surv(n = 2022, p0 = 1/4, p.cv = 0.25, py0 = 251/2022, Ymax = 10,
+power_itt_ate_surv(n = 2022, p0 = 1/4, p.cv = 0.25, py0 = 251/2022, Ymax = 10,
                HRy = 1, TOR = 1, nsim = 1000, alpha_adj = 0.05)
-#   marg_HR ~1   mean_events ~235   power ~0.05 (0.035-0.065 is fine)
+#   marg_HR ~1   mean_events ~251   power ~0.05 (0.035-0.065 is fine)
 
 ## 2. Basic call, no confounding: marg_HR should match TOR
 set.seed(2)
-out = sim_power_surv(2022, p0 = 1/4, p.cv = 0.25, py0 = 251/2022, Ymax = 10,
+out = power_itt_ate_surv(2022, p0 = 1/4, p.cv = 0.25, py0 = 251/2022, Ymax = 10,
                      HRy = 1, TOR = 0.62, nsim = 200, alpha_adj = 0.05)
 out
 
 ## 3. With confounding
 set.seed(3)
-sim_power_surv(2022, p0 = 1/4, p.cv = 0.25, py0 = 251/2022, Ymax = 10,
+power_itt_ate_surv(2022, p0 = 1/4, p.cv = 0.25, py0 = 251/2022, Ymax = 10,
                HRy = 2, TOR = 0.62, nsim = 1000, alpha_adj = 0.05)
 }

@@ -1,3 +1,5 @@
+source(power_core.R)
+
 #' Per-setting constants for the count-outcome simulation
 #'
 #' Computes, once per setting: Beta parameters for the PS; the PS-multiplier
@@ -17,7 +19,7 @@
 #' @returns List with the inputs (p0, p.cv, family, mu0, mu1, HRy, sgn, icc)
 #'          and alpha, beta, c_conf, EM2, tau2, kw0, kw1 (NA for Poisson),
 #'          RR_true = mu1 / mu0.
-count_setup = function(p0, p.cv, family = c("poisson", "nb"), mu0, mu1,
+setup_count = function(p0, p.cv, family = c("poisson", "nb"), mu0, mu1,
                        sd0 = NA, sd1 = NA, HRy = 1, sgn = 1, icc = 0,
                        ndraw = 1e6) {
   family = match.arg(family)
@@ -29,7 +31,7 @@ count_setup = function(p0, p.cv, family = c("poisson", "nb"), mu0, mu1,
   
   # 2. PS multiplier constants: c_conf so E[M_ps] = 1; EM2 = E[M_ps^2]
   e_big  = rbeta(ndraw, bp["alpha"], bp["beta"])
-  lp_big = sgn * log(HRy) * ps_cv(e, p0, p.cv)
+  lp_big = sgn * log(HRy) * ps_cv(e_big, p0, p.cv)
   c_conf = log(mean(exp(lp_big)))
   EM2    = mean(exp(2 * (lp_big - c_conf)))
   
@@ -105,7 +107,7 @@ decide = function(est, se, test = c("superiority2", "superiority", "noninferiori
 #'
 #' @param n    Number of people.
 #' @param H    Number of hospitals (whole number >= 1).
-#' @param tau2 Variance of the log hospital effect, e.g. count_setup()$tau2.
+#' @param tau2 Variance of the log hospital effect, e.g. setup_count()$tau2.
 #'             0 = no clustering (all M_h = 1).
 #' @returns data.frame(hosp, M_h): hospital ID (1..H) and that hospital's
 #'          multiplier, one row per person.
@@ -128,15 +130,15 @@ sim_cluster = function(n, H, tau2 = 0) {
 #'
 #' @param e   Propensity scores, from simulate_cohort()$e.
 #' @param M_h Hospital multiplier per person, from sim_cluster()$M_h.
-#' @param s   Setting list from count_setup() (family, mu0, mu1, HRy, sgn, p0,
+#' @param s   Setting list from setup_count() (family, mu0, mu1, HRy, sgn, p0,
 #'            p.cv, c_conf, kw0, kw1).
 #' @returns data.frame(Y0, Y1): count if X = 0 and if X = 1.
-sim_po_count = function(e, M_h, s) {
+sim_po_count_cl = function(e, M_h, s) {
   if (length(M_h) != length(e)) stop("e and M_h must have the same length")
   n = length(e)
   
   # PS multiplier (confounding) x hospital multiplier (clustering); both mean 1
-  M = exp(s$sgn * log(s$HRy) * ps_cv(e_big, s$p0, s$p.cv) - s$c_conf) * M_h
+  M = exp(s$sgn * log(s$HRy) * ps_cv(e, s$p0, s$p.cv) - s$c_conf) * M_h
   
   if (s$family == "poisson") {
     Y0 = rpois(n, lambda = s$mu0 * M)
@@ -160,7 +162,7 @@ sim_po_count = function(e, M_h, s) {
 #' @param fit_family "poisson" or "nb": the model used for the analysis.
 #' @returns c(est = , se = ): estimated log rate ratio (X = 1 vs X = 0) and its
 #'          hospital-clustered robust SE. NA for both if the fit fails.
-est_iptw_count = function(d, fit_family = c("poisson", "nb")) {
+est_itt_ate_count_cl = function(d, fit_family = c("poisson", "nb")) {
   fit_family = match.arg(fit_family)
   
   fit = tryCatch(
@@ -186,7 +188,7 @@ est_iptw_count = function(d, fit_family = c("poisson", "nb")) {
 #' original scripts: e, X, hosp, u, Y0, Y1.
 #'
 #' @param n            Sample size.
-#' @param s            Setting list from count_setup().
+#' @param s            Setting list from setup_count().
 #' @param H            Number of hospitals.
 #' @param test         "noninferiority", "superiority2", "superiority",
 #'                     "inferiority" or "equivalence" (see decide()).
@@ -204,7 +206,7 @@ est_iptw_count = function(d, fit_family = c("poisson", "nb")) {
 #'   mean_se   average robust SE (close to emp_sd = SE is accurate)
 #'   power     share of datasets declaring the test's alternative
 #'   n_fail    number of failed fits (dropped)
-sim_power_count = function(n, s, H, test = "noninferiority", alpha = 0.025,
+power_itt_ate_count_cl = function(n, s, H, test = "noninferiority", alpha = 0.025,
                            margin = 1, lower_better = TRUE,
                            fit_family = c("poisson", "nb"), nsim = 1000) {
   fit_family = match.arg(fit_family)
@@ -212,10 +214,10 @@ sim_power_count = function(n, s, H, test = "noninferiority", alpha = 0.025,
   res = t(replicate(nsim, {
     co = simulate_cohort(n, s$alpha, s$beta)                 # e, X, W
     cl = sim_cluster(n, H = H, tau2 = s$tau2)                # hosp, M_h
-    po = sim_po_count(co$e, cl$M_h, s)                       # Y0, Y1
+    po = sim_po_count_cl(co$e, cl$M_h, s)                       # Y0, Y1
     d  = combine_outcomes(co, po)                            # observed Y
     d$hosp = cl$hosp
-    c(est_iptw_count(d, fit_family),
+    c(est_itt_ate_count_cl(d, fit_family),
       crude = log(mean(d$Y[d$X == 1]) / mean(d$Y[d$X == 0])))
   }))
   
@@ -236,21 +238,21 @@ if (FALSE) {
   
   ## ---- Setting from the NB script (Aim 3: discontinue vs continue antibiotics)
   set.seed(2025)
-  s_null = count_setup(p0 = 0.193, p.cv = 0.5, family = "nb",
+  s_null = setup_count(p0 = 0.193, p.cv = 0.5, family = "nb",
                        mu0 = 5.95, mu1 = 3.71,
                        sd0 = 3.01, sd1 = 1.97,
                        HRy = 1.3, sgn = -1, icc = 0.01)
   set.seed(1)
-  sim_power_count(n = 3908, s = s_null, H = 69, test = "noninferiority",
+  power_itt_ate_count_cl(n = 3908, s = s_null, H = 69, test = "noninferiority",
                   alpha = 0.025, margin = 1.1, nsim = 1000)
   
   ## ---- Setting from the Poisson script
   set.seed(2025)
-  s_po = count_setup(p0 = 0.161, p.cv = 0.5, family = "poisson",
+  s_po = setup_count(p0 = 0.161, p.cv = 0.5, family = "poisson",
                      mu0 = 1.84, mu1 = 1.65, HRy = 1.3, sgn = -1, icc = 0.01)
   
   set.seed(123)
-  sim_power_count(n = 2696, s = s_po, H = 69, test = "noninferiority",
+  power_itt_ate_count_cl(n = 2696, s = s_po, H = 69, test = "noninferiority",
                   alpha = 0.025, margin = 1.1, nsim = 100)
   #   RR_true 0.897   mean_RR ~0.90   compare power with the Poisson script
 }

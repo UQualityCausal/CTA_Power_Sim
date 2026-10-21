@@ -1,26 +1,7 @@
-## hte_surv.R
 ## Power for HTE on a time-to-event outcome: ratio of treatment hazard ratios
 ## between levels of a binary effect modifier (X:EF interaction), IPTW Cox.
 source("power_core.R")
-
-#' Hazard rate from cumulative risk (exponential model)
-#'
-#' Converts "p_event0 of untreated people have the event by year tau" into the
-#' constant hazard rate lambda, using 1 - exp(-lambda * tau) = p_event0.
-#'
-#' @param p_event0 Cumulative incidence by tau among untreated people with an
-#'                 average propensity score; strictly between 0 and 1.
-#' @param tau      Length of follow-up (years); also the administrative
-#'                 censoring time. Must be > 0.
-#' @returns Hazard rate lambda.
-#' @examples
-#' rate_from_risk(251/2022, 10)   # 0.01324
-rate_from_risk = function(p_event0, tau){
-  # input checks
-  if (p_event0 <= 0 || p_event0 >=1) stop("p_event0 should be strictly between 0 and 1")
-  if (tau <= 0 ) stop("tau should be greater than 0")
-  -log(1 - p_event0) / tau
-}
+source("itt_ate_surv.R")
 
 #' Simulate potential survival outcomes with effect modification
 #'
@@ -76,7 +57,7 @@ sim_po_surv_hte = function(e, EF, py0, Ymax, HRy = 1, TOR, MOR, HR_ef = 1,
 #'          and W (IPT weight).
 #' @returns c(est = , se = ): estimated log ratio of HRs and its robust SE.
 #'          exp(est) is the ratio of HRs (MOR).
-est_iptw_surv_hte = function(d) {
+est_itt_hte_surv = function(d) {
   fit = survival::coxph(survival::Surv(Y, D) ~ X * EF, data = d,
                         weights = W, robust = TRUE)
   
@@ -111,7 +92,7 @@ est_iptw_surv_hte = function(d) {
 #'   mean_events    average total events per dataset
 #'   mean_events11  average events among treated with EF = 1 (smallest cell)
 #'   power          share of datasets that reject H0: MOR = 1
-sim_power_surv_hte = function(n, pi_ef, p0, p.cv, py0, Ymax, HRy = 1, TOR, MOR,
+power_itt_hte_surv = function(n, pi_ef, p0, p.cv, py0, Ymax, HRy = 1, TOR, MOR,
                               HR_ef = 1, nsim = 1000, alpha_adj = 0.05) {
   bp   = get_beta_params(p0, p.cv)
   crit = qnorm(1 - alpha_adj / 2)
@@ -123,7 +104,7 @@ sim_power_surv_hte = function(n, pi_ef, p0, p.cv, py0, Ymax, HRy = 1, TOR, MOR,
                             HRy = HRy, TOR = TOR, MOR = MOR, HR_ef = HR_ef,
                             p0 = p0, p.cv = p.cv)
     d     = combine_outcomes(co, po)
-    c(est_iptw_surv_hte(d),
+    c(est_itt_hte_surv(d),
       events   = sum(d$D),                            # all events
       events11 = sum(d[d$X == 1 & d$EF == 1,"D"]))    # events among X = 1 & EF = 1
   }))
@@ -148,29 +129,29 @@ Ymax = 7
 
 ## 1. No effect modification: type I error should be about alpha_adj
 set.seed(1)
-sim_power_surv_hte(n = n, pi_ef = 0.2, p0 = p0, p.cv = p.cv, py0 = py0,
+power_itt_hte_surv(n = n, pi_ef = 0.2, p0 = p0, p.cv = p.cv, py0 = py0,
                    Ymax = Ymax, HRy = 1, TOR = 0.85, MOR = 1,
                    nsim = 1000, alpha_adj = 0.05)
-#   marg_MOR ~1   mean_events ~1035   mean_events11 ~46   power ~0.05
+#   marg_MOR ~1   mean_events ~1104   mean_events11 ~50   power ~0.05
 
 ## 2. Basic call: MOR = 1.5, pi = 0.2
 set.seed(2)
-out = sim_power_surv_hte(n = n, pi_ef = 0.2, p0 = p0, p.cv = p.cv, py0 = py0,
+out = power_itt_hte_surv(n = n, pi_ef = 0.2, p0 = p0, p.cv = p.cv, py0 = py0,
                          Ymax = Ymax, HRy = 1, TOR = 0.85, MOR = 1.5,
                          nsim = 500, alpha_adj = 0.05)
 out
-#   marg_MOR ~1.5   mean_events11 ~67   emp_sd ~ mean_se ~0.17   power ~0.65
+#   marg_MOR ~1.5  mean_events11 ~71   emp_sd ~ mean_se ~0.17   power ~0.65
 
 ## 3. Effect of pi: a balanced modifier gives more power
 set.seed(3)
-sim_power_surv_hte(n = n, pi_ef = 0.5, p0 = p0, p.cv = p.cv, py0 = py0,
+power_itt_hte_surv(n = n, pi_ef = 0.5, p0 = p0, p.cv = p.cv, py0 = py0,
                    Ymax = Ymax, HRy = 1, TOR = 0.85, MOR = 1.5,
                    nsim = 500, alpha_adj = 0.05)
-#   mean_events11 ~168   mean_se ~0.14   power ~0.80
+#   mean_events11 ~179   mean_se ~0.14   power ~0.80
 
 ## 5. With confounding (KP's old HRy = 1.3)
 set.seed(4)
-sim_power_surv_hte(n = n, pi_ef = 0.2, p0 = p0, p.cv = p.cv, py0 = py0,
+power_itt_hte_surv(n = n, pi_ef = 0.2, p0 = p0, p.cv = p.cv, py0 = py0,
                    Ymax = Ymax, HRy = 1.3, TOR = 0.85, MOR = 1.5,
                    nsim = 500, alpha_adj = 0.05)
 #   marg_MOR ~1.5   power about the same as example 2
@@ -180,7 +161,7 @@ mors  = c(1.3, 1.4, 1.5, 1.6, 1.7)
 curve = do.call(rbind, lapply(mors, function(m) {
   set.seed(5)
   cbind(MOR = m,
-        sim_power_surv_hte(n = n, pi_ef = 0.2, p0 = p0, p.cv = p.cv,
+        power_itt_hte_surv(n = n, pi_ef = 0.2, p0 = p0, p.cv = p.cv,
                            py0 = py0, Ymax = Ymax, HRy = 1, TOR = 0.85,
                            MOR = m, nsim = 200, alpha_adj = 0.05))
 }))
