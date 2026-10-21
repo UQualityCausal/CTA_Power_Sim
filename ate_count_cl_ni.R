@@ -56,6 +56,46 @@ count_setup = function(p0, p.cv, family = c("poisson", "nb"), mu0, mu1,
        RR_true = mu1 / mu0)
 }
 
+## ==== Decision rules ====
+
+#' Decision rule for one or more simulated datasets
+#'
+#' Compares one-sided confidence bounds for est with thresholds. All
+#' quantities are on the estimate's scale (log RR / log HR for ratios; raw
+#' difference for means). Works on vectors.
+#'
+#' @param est          Estimate(s) (e.g. log RR).
+#' @param se           Standard error(s).
+#' @param test         "superiority2" (two-sided, H1: effect != 0),
+#'                     "superiority" (one-sided, H1: better),
+#'                     "noninferiority" (H1: not worse by more than margin),
+#'                     "inferiority" (H1: worse; by more than margin if margin > 0),
+#'                     "equivalence" (H1: within +/- margin; TOST).
+#' @param alpha        Two-sided level for "superiority2"; one-sided level per
+#'                     bound for the others (e.g. 0.025).
+#' @param margin       Margin on the estimate's scale (e.g. log(1.1)); >= 0.
+#'                     Ignored for "superiority2" and "superiority".
+#' @param lower_better TRUE if smaller outcomes are better.
+#' @returns Logical vector: TRUE where the test's alternative is declared.
+decide = function(est, se, test = c("superiority2", "superiority", "noninferiority",
+                                    "inferiority", "equivalence"),
+                  alpha = 0.05, margin = 0, lower_better = TRUE) {
+  test = match.arg(test)
+  b = if (lower_better) est else -est           # b > 0 means "worse"
+  
+  if (test == "superiority2") return(abs(b / se) > qnorm(1 - alpha / 2))
+  
+  z = qnorm(1 - alpha)
+  upper = b + z * se
+  lower = b - z * se
+  
+  switch(test,
+         superiority    = upper < 0,
+         noninferiority = upper < margin,
+         inferiority    = lower > margin,
+         equivalence    = lower > -margin & upper < margin)
+}
+
 #' Simulate hospital membership and shared hospital multipliers
 #'
 #' Each person is assigned to one of H hospitals at random. Each hospital gets
