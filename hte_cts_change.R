@@ -34,8 +34,8 @@ sd_change = function(sd_b, sd_f, rho){
 #' @param b_ef      Extra change without treatment for EF = 1 (EF's own effect on
 #'                  the outcome; original units). Does not affect power. Default 0.
 #' @param sd_chg    SD of the change (original units), from sd_change().
-#' @param conf      Confounding: extra untreated change for a 1-SD higher PS
-#'                  (original units). 0 means none.
+#' @param conf      Confounding: extra change per 1-CV increase in the PS.
+#'                  0 means none.
 #' @param p0        Mean propensity score (same as in get_beta_params()).
 #' @param p.cv      Propensity score CV (same as in get_beta_params()).
 #' @returns data.frame(chg0, chg1): change without and with treatment.
@@ -43,7 +43,7 @@ sim_po_chg_hte = function(e, EF, delta, delta_mod, b_ef = 0, sd_chg, conf = 0, p
   if (length(EF) != length(e)) stop("EF and e must have the same length")
   
   n = length(e)
-  z = ps_z(e, p0, p.cv) # Standardized PS: mean 0, SD 1
+  z = ps_cv(e, p0, p.cv) # PS in CV units
   
   chg0 = rnorm(n, b_ef * EF + conf * z, sd_chg)     # untreated: main effect + confounding
   chg1 = chg0 + delta + delta_mod * EF              # treated: effect depends on EF
@@ -75,13 +75,13 @@ est_iptw_hte = function(d) {
 #' Simulate nsim datasets and compute power for HTE (X:EF interaction)
 #' 
 #' @param n         Sample size.
-#' @param pi_ef.    Proportion of people with EF = 1, strictly between 0 and 1.
+#' @param pi_ef     Proportion of people with EF = 1, strictly between 0 and 1.
 #' @param p0        Expected proportion treated (allocation; 1:2 -> 1/3).
 #' @param p.cv      Propensity score CV.
 #' @param sd_chg    SD of the change (original units), from sd_change().
-#' @param conf      Confounding: extra change for a 1-SD higher PS, untreated
+#' @param conf      Confounding: extra change per 1-CV increase in the PS, untreated
 #'                  (original units).
-#' @param delta     True treatment effect on the change (original units).
+#' @param delta     True treatment effect on the change in the EF = 0 group. (original units).
 #' @param delta_mod Extra treatment effect in the EF = 1 group (original units):
 #'                  the difference in effects being tested.
 #' @param b_ef      Extra untreated change for EF = 1 (original units).

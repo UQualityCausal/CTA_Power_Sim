@@ -25,10 +25,10 @@ sd_change = function(sd_b, sd_f, rho){
 #' Simulate potential outcomes
 #' 
 #' @param e         Propensity scores, one per person, from simulate_cohort()$e.
-#' @param delta     True treatment effect on the change, orignial units.
+#' @param delta     True treatment effect on the change, original units.
 #' @param sd_chg    The sd of the change between baseline and follow-up.
-#' @param conf      Confounding: extra change, without treatment, for someone 
-#'                  whose propensity score is 1 SD above average. 0 means none.
+#' @param conf      Confounding: extra change, in both arms, for someone 
+#'                  whose propensity score is 1 CV above average. 0 means none.
 #' @param p0        Mean propensity score.
 #' @param p.cv      Propensity score CV.
 #' @returns         Data frame with potential outcomes for treatment and control
@@ -36,7 +36,7 @@ sd_change = function(sd_b, sd_f, rho){
 #' po = sim_po_chg(co$e, 0.5, sd_change(1.25, 1.25, 0.5), 0.01, 1/3, 0.5)
 sim_po_chg = function(e, delta, sd_chg, conf = 0, p0, p.cv){
   n = length(e)
-  z = ps_z(e, p0, p.cv) # Standardized PS: mean 0, SD 1
+  z = ps_cv(e, p0, p.cv) # PS in CV units
   
   chg0 = rnorm(n, conf * z, sd_chg)
   chg1 = chg0 + delta
@@ -70,7 +70,7 @@ est_iptw=function(d){
 #' @param p0        Expected proportion treated (allocation; 1:2 -> 1/3).
 #' @param p.cv      Propensity score CV.
 #' @param sd_chg    SD of the change (original units), from sd_change().
-#' @param conf      Confounding: extra change for a 1-SD higher PS, untreated
+#' @param conf      Confounding: extra change for a 1-CV higher PS, untreated
 #'                  (original units).
 #' @param delta     True treatment effect on the change (original units).
 #' @param nsim      Number of simulated datasets.
@@ -115,7 +115,7 @@ sim_power(n = 1000, p0 = 1/3, p.cv = 0.25,
 set.seed(2)
 sim_power(1000, 1/3, 0.25, sd_chg = 1.25, conf = 0.1, delta = 0,
           nsim = 1000, alpha_adj = 0.0125)
-#   mean_est ~0   power ~0.015 (anything 0.005-0.02 is fine)
+#   mean_est ~0   power ~0.0125
 
 
 ## 3. Effect of propensity score variation: more variation, less power

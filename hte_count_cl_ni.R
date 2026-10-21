@@ -1,5 +1,5 @@
 ## =============================================================================
-## hte_count.R -- Power for effect modification (HTE) on a count outcome
+## hte_count_cl_ni.R -- Power for effect modification (HTE) on a count outcome
 ##
 ## Assumptions:
 ##   - EF is independent of the propensity score (it is not a confounder), so
@@ -22,11 +22,12 @@ source("power_core.R")
 #'
 #' @param p0, p.cv Propensity score mean and CV.
 #' @param family   "poisson" or "nb".
-#' @param mu0, mu1 Mean outcome if X = 0 / X = 1 (outcome units).
+#' @param mu0, mu1 Population mean of Y0/Y1.
 #' @param sd0, sd1 SD of the outcome by arm (NB only; need sd^2 > mean).
 #' @param HRy      Size of PS effect on the outcome: ratio per 1-CV of PS.
 #' @param sgn      Direction: -1 = higher PS -> smaller outcome; +1 = larger.
-#' @param icc      Hospital ICC on the count scale (0 = no clustering).
+#' @param icc      Hospital ICC on the count scale, calibrated on the untreated
+#'                 arm (0 = no clustering).
 #' @param ndraw    Monte Carlo draws used for c_conf and EM2.
 #' @returns List with the inputs (p0, p.cv, family, mu0, mu1, HRy, sgn, icc)
 #'          and alpha, beta, c_conf, EM2, tau2, kw0, kw1 (NA for Poisson),
@@ -43,7 +44,7 @@ count_setup = function(p0, p.cv, family = c("poisson", "nb"), mu0, mu1,
   
   # 2. PS multiplier constants: c_conf so E[M_ps] = 1; EM2 = E[M_ps^2]
   e_big  = rbeta(ndraw, bp["alpha"], bp["beta"])
-  lp_big = sgn * log(HRy) * (e_big - p0) / p.cv
+  lp_big = sgn * log(HRy) * ps_cv(e, p0, p.cv)
   c_conf = log(mean(exp(lp_big)))
   EM2    = mean(exp(2 * (lp_big - c_conf)))
   
@@ -111,6 +112,29 @@ decide = function(est, se, test = c("superiority2", "superiority", "noninferiori
          equivalence    = lower > -margin & upper < margin)
 }
 
+#' Simulate hospital membership and shared hospital multipliers
+#'
+#' Each person is assigned to one of H hospitals at random. Each hospital gets
+#' one multiplier M_h = exp(u), u ~ N(-tau2/2, tau2), so E[M_h] = 1. Everyone
+#' in a hospital shares the same M_h, which creates within-hospital correlation.
+#'
+#' @param n    Number of people.
+#' @param H    Number of hospitals (whole number >= 1).
+#' @param tau2 Variance of the log hospital effect, e.g. count_setup()$tau2.
+#'             0 = no clustering (all M_h = 1).
+#' @returns data.frame(hosp, M_h): hospital ID (1..H) and that hospital's
+#'          multiplier, one row per person.
+sim_cluster = function(n, H, tau2 = 0) {
+  # input checks
+  if (H < 1 || H != round(H)) stop("H must be a whole number >= 1")
+  if (tau2 < 0) stop("tau2 must be >= 0")
+  
+  hosp = sample(1:H, n, replace = TRUE)               # hospital for each person
+  u    = rnorm(H, mean = -tau2 / 2, sd = sqrt(tau2))  # one effect per hospital
+  
+  data.frame(hosp = hosp, M_h = exp(u[hosp]))         # look up own hospital's effect
+}
+
 #' Simulate potential count outcomes with a binary effect modifier
 #'
 #' Same as sim_po_count(), plus EF. Each person's mean is
@@ -133,7 +157,7 @@ sim_po_count_hte = function(e, M_h, EF, s, MOR = 1, ef_ratio = 1) {
     stop("e, M_h and EF must have the same length")
 
   # PS multiplier x hospital multiplier x EF main effect
-  M  = exp(s$sgn * log(s$HRy) * (e - s$p0) / s$p.cv - s$c_conf) * M_h *
+  M  = exp(s$sgn * log(s$HRy) * ps_cv(e_big, s$p0, s$p.cv) - s$c_conf) * M_h *
        ef_ratio^EF
   m0 = s$mu0 * M                    # mean if untreated
   m1 = s$mu1 * MOR^EF * M           # mean if treated (HTE enters here only)
@@ -204,7 +228,7 @@ est_iptw_count_hte = function(d, fit_family = c("poisson", "nb")) {
 #' @returns One-row data.frame:
 #'   MOR_true   input MOR
 #'   mean_MOR   exp(mean log MOR estimate): close to MOR_true = no bias
-#'   crude_MOR  exp(mean unweighted ratio of cell-mean RRs): shows confounding
+#'   crude_MOR  exp(mean unweighted ratio of cell-mean RRs)
 #'   RR_ef0     exp(mean log RR, EF = 0): should be close to mu1 / mu0
 #'   RR_ef1     exp(mean log RR, EF = 1): should be close to mu1 / mu0 x MOR
 #'   emp_sd     SD of log MOR estimates (the true SE)

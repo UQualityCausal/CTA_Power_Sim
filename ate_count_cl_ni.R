@@ -7,11 +7,12 @@
 #'
 #' @param p0, p.cv Propensity score mean and CV.
 #' @param family   "poisson" or "nb".
-#' @param mu0, mu1 Mean outcome if X = 0 / X = 1 (outcome units).
+#' @param mu0, mu1 Population means of Y0/Y1.
 #' @param sd0, sd1 SD of the outcome by arm (NB only; need sd^2 > mean).
 #' @param HRy      Size of PS effect on the outcome: ratio per 1-CV of PS.
 #' @param sgn      Direction: -1 = higher PS -> smaller outcome; +1 = larger.
-#' @param icc      Hospital ICC on the count scale (0 = no clustering).
+#' @param icc      Hospital ICC on the count scale, calibrated on the untreated
+#'                 arm (0 = no clustering).
 #' @param ndraw    Monte Carlo draws used for c_conf and EM2.
 #' @returns List with the inputs (p0, p.cv, family, mu0, mu1, HRy, sgn, icc)
 #'          and alpha, beta, c_conf, EM2, tau2, kw0, kw1 (NA for Poisson),
@@ -28,7 +29,7 @@ count_setup = function(p0, p.cv, family = c("poisson", "nb"), mu0, mu1,
   
   # 2. PS multiplier constants: c_conf so E[M_ps] = 1; EM2 = E[M_ps^2]
   e_big  = rbeta(ndraw, bp["alpha"], bp["beta"])
-  lp_big = sgn * log(HRy) * (e_big - p0) / p.cv
+  lp_big = sgn * log(HRy) * ps_cv(e, p0, p.cv)
   c_conf = log(mean(exp(lp_big)))
   EM2    = mean(exp(2 * (lp_big - c_conf)))
   
@@ -135,7 +136,7 @@ sim_po_count = function(e, M_h, s) {
   n = length(e)
   
   # PS multiplier (confounding) x hospital multiplier (clustering); both mean 1
-  M = exp(s$sgn * log(s$HRy) * (e - s$p0) / s$p.cv - s$c_conf) * M_h
+  M = exp(s$sgn * log(s$HRy) * ps_cv(e_big, s$p0, s$p.cv) - s$c_conf) * M_h
   
   if (s$family == "poisson") {
     Y0 = rpois(n, lambda = s$mu0 * M)
@@ -181,7 +182,7 @@ est_iptw_count = function(d, fit_family = c("poisson", "nb")) {
 #'
 #' Per dataset: cohort (PS, treatment, weights) -> hospitals -> potential
 #' counts -> observed count -> IPTW log RR with hospital-clustered robust SE
-#' -> decision via decide() (core). Random draws follow the order of the
+#' -> decision via decide(). Random draws follow the order of the
 #' original scripts: e, X, hosp, u, Y0, Y1.
 #'
 #' @param n            Sample size.

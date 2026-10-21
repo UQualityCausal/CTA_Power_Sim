@@ -25,14 +25,14 @@ rate_from_risk = function(p_event0, tau){
 #' Simulate potential survival outcomes
 #'
 #' Exponential event times with log hazard
-#'   untreated: mu0 = b0 + b1 * (e - p0) / p.cv
+#'   untreated: mu0 = b0 + b1 * ps_cv(e, p0, p.cv)
 #'   treated:   mu1 = mu0 + log(TOR)
 #' where b0 = log(py0 / Ymax) and b1 = log(HRy). Times are censored at Ymax.
 #'
 #' @param e    Propensity scores, from simulate_cohort()$e.
 #' @param py0  Untreated event rate by Ymax at PS = p0.
 #' @param Ymax Follow-up length = administrative censoring time (years).
-#' @param HRy  Confounding: HR per one-unit increase in (e - p0)/p.cv, untreated.
+#' @param HRy  Confounding: HR per 1-CV increase in the PS, untreated.
 #'             1 = no confounding.
 #' @param TOR  Treatment hazard ratio.
 #' @param p0   Mean propensity score (same as in get_beta_params()).
@@ -43,16 +43,16 @@ rate_from_risk = function(p_event0, tau){
 #' po = sim_po_surv(co$e, 0.13, 7, 1.3, 0.85, 1/3, 0.5)
 sim_po_surv = function(e, py0, Ymax, HRy = 1, TOR, p0, p.cv) {
   n  = length(e)
-  b0 = log(py0 / Ymax)                       # log baseline hazard
+  b0 = log(rate_from_risk(py0, Ymax))  # log baseline hazard
   b1 = log(HRy)                              # confounding
   
   # untreated 
-  mu0 = b0 + b1 * (e - p0) / p.cv
+  mu0 = b0 + b1 * ps_cv(e, p0, p.cv)
   Y0  = -log(runif(n)) / exp(mu0)
   D0  = as.integer(Y0 < Ymax)
   
   # treated 
-  mu1 = b0 + b1 * (e - p0) / p.cv + log(TOR)
+  mu1 = mu0 + log(TOR)
   Y1  = -log(runif(n)) / exp(mu1)
   D1  = as.integer(Y1 < Ymax)
   
@@ -89,7 +89,7 @@ est_iptw_surv = function(d) {
 #' @param p.cv      Propensity score CV.
 #' @param py0       Untreated event rate by Ymax at PS = p0.
 #' @param Ymax      Follow-up length = administrative censoring time (years).
-#' @param HRy       Confounding: HR per one-unit increase in (e - p0)/p.cv,
+#' @param HRy       Confounding: HR per 1-CV increase in the PS
 #'                  untreated. 1 = no confounding.
 #' @param TOR       Treatment hazard ratio used to generate the data.
 #' @param nsim      Number of simulated datasets.

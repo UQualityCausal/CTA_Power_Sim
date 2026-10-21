@@ -70,17 +70,18 @@ simulate_cohort = function(n, alpha, beta, estimand = c("ATE", "ATT")){
   data.frame(e = e, X = X, W = W)
 }
 
-#' Standardized propensity score
+#' Propensity score in CV units
 #'
-#' Puts the propensity score on an SD scale (mean 0, SD 1), so confounding
-#' strength means the same thing whatever p0 and p.cv are.
+#' Distance of the PS from its mean, in steps of p.cv (absolute probability
+#' units). A confounding effect "per 1-CV increase" is the effect per one of
+#' these units, i.e. per increase of p.cv in the PS (= 1/p0 SDs).
 #'
 #' @param e    Propensity scores.
 #' @param p0   Mean propensity score (same value given to get_beta_params()).
 #' @param p.cv Propensity score CV (same value given to get_beta_params()).
-#' @returns Numeric vector z = (e - p0) / (p.cv * p0).
-ps_z = function(e, p0, p.cv) {
-  (e - p0) / (p.cv * p0)
+#' @returns Numeric vector (e - p0) / p.cv; mean 0, SD = p0.
+ps_cv = function(e, p0, p.cv) {
+  (e - p0) / p.cv
 }
 
 #' Simulate a binary effect modifier

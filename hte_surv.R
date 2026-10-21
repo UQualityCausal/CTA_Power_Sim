@@ -3,10 +3,29 @@
 ## between levels of a binary effect modifier (X:EF interaction), IPTW Cox.
 source("power_core.R")
 
+#' Hazard rate from cumulative risk (exponential model)
+#'
+#' Converts "p_event0 of untreated people have the event by year tau" into the
+#' constant hazard rate lambda, using 1 - exp(-lambda * tau) = p_event0.
+#'
+#' @param p_event0 Cumulative incidence by tau among untreated people with an
+#'                 average propensity score; strictly between 0 and 1.
+#' @param tau      Length of follow-up (years); also the administrative
+#'                 censoring time. Must be > 0.
+#' @returns Hazard rate lambda.
+#' @examples
+#' rate_from_risk(251/2022, 10)   # 0.01324
+rate_from_risk = function(p_event0, tau){
+  # input checks
+  if (p_event0 <= 0 || p_event0 >=1) stop("p_event0 should be strictly between 0 and 1")
+  if (tau <= 0 ) stop("tau should be greater than 0")
+  -log(1 - p_event0) / tau
+}
+
 #' Simulate potential survival outcomes with effect modification
 #'
 #' Exponential event times with log hazard
-#'   untreated: mu0 = b0 + b1 * (e - p0)/p.cv + log(HR_ef) * EF
+#'   untreated: mu0 = b0 + b1 * ps_cv(e, p0, p.cv) + log(HR_ef) * EF
 #'   treated:   mu1 = mu0 + log(TOR) + log(MOR) * EF
 #' so the treatment HR is TOR when EF = 0 and TOR * MOR when EF = 1.
 #' Times are censored at Ymax.
@@ -15,12 +34,11 @@ source("power_core.R")
 #' @param EF    Effect modifier, 0/1 per person, from sim_ef().
 #' @param py0   Untreated event rate by Ymax, at PS = p0 and EF = 0.
 #' @param Ymax  Follow-up length = administrative censoring time (years).
-#' @param HRy   Confounding: HR per one-unit increase in (e - p0)/p.cv,
+#' @param HRy   Confounding: HR per 1-CV increase in the PS,
 #'              untreated. 1 = no confounding.
 #' @param TOR   Treatment hazard ratio in the EF = 0 group.
 #' @param MOR   Ratio of treatment HRs, EF = 1 vs EF = 0 (the tested quantity).
 #' @param HR_ef EF's own effect on the hazard, untreated. 1 = none.
-#'              Does not affect power.
 #' @param p0    Mean propensity score (same as in get_beta_params()).
 #' @param p.cv  Propensity score CV (same as in get_beta_params()).
 #' @returns data.frame(Y0, D0, Y1, D1): time (capped at Ymax) and event
@@ -30,11 +48,11 @@ sim_po_surv_hte = function(e, EF, py0, Ymax, HRy = 1, TOR, MOR, HR_ef = 1,
   if (length(EF) != length(e)) stop("EF and e must have the same length")
   
   n  = length(e)
-  b0 = log(py0 / Ymax)
+  b0 = log(rate_from_risk(py0, Ymax))
   b1 = log(HRy)
   
   # untreated
-  mu0 = b0 + b1*(e-p0)/p.cv + log(HR_ef) * EF   # baseline + confounding + EF main effect
+  mu0 = b0 + b1 * ps_cv(e, p0, p.cv) + log(HR_ef) * EF   # baseline + confounding + EF main effect
   Y0  = -log(runif(n)) / exp(mu0)
   D0  = as.integer(Y0 < Ymax)
   
@@ -78,7 +96,7 @@ est_iptw_surv_hte = function(d) {
 #' @param p.cv      Propensity score CV.
 #' @param py0       Untreated event rate by Ymax, at PS = p0 and EF = 0.
 #' @param Ymax      Follow-up length = administrative censoring time (years).
-#' @param HRy       Confounding: HR per one-unit increase in (e - p0)/p.cv,
+#' @param HRy       Confounding: HR per 1-CV increase in the PS,
 #'                  untreated. 1 = no confounding.
 #' @param TOR       Treatment hazard ratio in the EF = 0 group.
 #' @param MOR       Ratio of treatment HRs, EF = 1 vs EF = 0 (tested).
