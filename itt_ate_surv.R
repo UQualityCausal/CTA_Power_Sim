@@ -1,17 +1,19 @@
 ## Power for the ATE (marginal hazard ratio) on a time-to-event outcome,
-## IPTW Cox with simulated propensity scores. Original units throughout.
+## IPTW Cox model with a robust SE. Exponential event times; the only
+## censoring is administrative, at Ymax.
 source("power_core.R")
 
 #' Hazard rate from cumulative risk (exponential model)
 #'
-#' Converts "p_event0 of untreated people have the event by year tau" into the
-#' constant hazard rate lambda, using 1 - exp(-lambda * tau) = p_event0.
+#' Converts "a share p_event0 of untreated people have the event by year tau"
+#' into the constant (exponential) hazard rate lambda, by solving
+#' 1 - exp(-lambda * tau) = p_event0.
 #'
 #' @param p_event0 Cumulative incidence by tau among untreated people with an
 #'                 average propensity score; strictly between 0 and 1.
 #' @param tau      Length of follow-up (years); also the administrative
 #'                 censoring time. Must be > 0.
-#' @returns Hazard rate lambda.
+#' @returns Hazard rate lambda (events per person-year).
 #' @examples
 #' rate_from_risk(251/2022, 10)   # 0.01325
 rate_from_risk = function(p_event0, tau){
@@ -26,13 +28,17 @@ rate_from_risk = function(p_event0, tau){
 #' Exponential event times with log hazard
 #'   untreated: mu0 = b0 + b1 * ps_cv(e, p0, p.cv)
 #'   treated:   mu1 = mu0 + log(TOR)
-#' where b0 = log(rate_from_risk(py0, Ymax)) and b1 = log(HRy). Times are censored at Ymax.
+#' where b0 = log(rate_from_risk(py0, Ymax)) and b1 = log(HRy). TOR is a
+#' conditional HR: the same for everyone at a given PS. Times are
+#' administratively censored at Ymax (no other censoring).
 #'
 #' @param e    Propensity scores, from simulate_cohort()$e.
-#' @param py0  Untreated event rate by Ymax at PS = p0.
+#' @param py0  Cumulative risk of the event by Ymax if untreated, for someone
+#'             at the average PS (e = p0). Close to, but not exactly, the
+#'             population risk when HRy != 1.
 #' @param Ymax Follow-up length = administrative censoring time (years).
 #' @param HRy  Confounding: HR per 1-CV increase in the PS. 1 = no confounding.
-#' @param TOR  Treatment hazard ratio.
+#' @param TOR  Conditional treatment hazard ratio.
 #' @param p0   Mean propensity score (same as in get_beta_params()).
 #' @param p.cv Propensity score CV (same as in get_beta_params()).
 #' @returns data.frame(Y0, D0, Y1, D1): time (capped at Ymax) and event
@@ -41,8 +47,8 @@ rate_from_risk = function(p_event0, tau){
 #' po = sim_po_surv(co$e, 0.13, 7, 1.3, 0.85, 1/3, 0.5)
 sim_po_surv = function(e, py0, Ymax, HRy = 1, TOR, p0, p.cv) {
   n  = length(e)
-  b0 = log(rate_from_risk(py0, Ymax))  # log baseline hazard
-  b1 = log(HRy)                              # confounding
+  b0 = log(rate_from_risk(py0, Ymax))  # log baseline hazard (at PS = p0)
+  b1 = log(HRy)                        # confounding
   
   # untreated 
   mu0 = b0 + b1 * ps_cv(e, p0, p.cv)
@@ -85,19 +91,21 @@ est_itt_ate_surv = function(d) {
 #' @param n         Sample size.
 #' @param p0        Expected proportion treated (allocation; 1:3 -> 1/4).
 #' @param p.cv      Propensity score CV.
-#' @param py0       Untreated event rate by Ymax at PS = p0.
+#' @param py0       Cumulative risk by Ymax if untreated, at the average PS.
 #' @param Ymax      Follow-up length = administrative censoring time (years).
-#' @param HRy       Confounding: HR per 1-CV increase in the PS
-#'                  untreated. 1 = no confounding.
-#' @param TOR       Treatment hazard ratio used to generate the data.
+#' @param HRy       Confounding: HR per 1-CV increase in the PS, untreated.
+#'                  1 = no confounding.
+#' @param TOR       Conditional treatment HR used to generate the data.
 #' @param nsim      Number of simulated datasets.
 #' @param alpha_adj Two-sided significance level after multiplicity adjustment.
 #' @returns One-row data.frame:
 #'   mean_est     average log HR estimate
-#'   marg_HR      exp(mean_est): the marginal HR (= TOR when HRy = 1)
+#'   marg_HR      exp(mean_est): the marginal HR = the detectable effect to
+#'                report (~ TOR when HRy = 1; can differ slightly otherwise,
+#'                because the HR is non-collapsible)
 #'   emp_sd       SD of the log HR estimates (the true SE)
 #'   mean_se      average robust SE (close to emp_sd = SE is accurate)
-#'   mean_events  average number of events per dataset
+#'   mean_events  average number of events (both arms) per dataset
 #'   power        share of datasets that reject H0: HR = 1
 #'   
 #' See the examples at the bottom of this file.
@@ -135,9 +143,11 @@ set.seed(2)
 out = power_itt_ate_surv(2022, p0 = 1/4, p.cv = 0.25, py0 = 251/2022, Ymax = 10,
                      HRy = 1, TOR = 0.62, nsim = 200, alpha_adj = 0.05)
 out
+#   marg_HR ~0.61   emp_sd ~ mean_se ~0.18   mean_events ~229   power ~0.82
 
-## 3. With confounding
+## 3. With confounding: IPTW still recovers the HR; power about the same
 set.seed(3)
 power_itt_ate_surv(2022, p0 = 1/4, p.cv = 0.25, py0 = 251/2022, Ymax = 10,
                HRy = 2, TOR = 0.62, nsim = 1000, alpha_adj = 0.05)
+#   marg_HR ~0.61   emp_sd ~ mean_se ~0.18   power ~0.83
 }

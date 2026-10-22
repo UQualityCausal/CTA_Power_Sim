@@ -1,4 +1,4 @@
-source(power_core.R)
+source("power_core.R")
 
 #' Per-setting constants for the count-outcome simulation
 #'
@@ -19,7 +19,7 @@ source(power_core.R)
 #' @returns List with the inputs (p0, p.cv, family, mu0, mu1, HRy, sgn, icc)
 #'          and alpha, beta, c_conf, EM2, tau2, kw0, kw1 (NA for Poisson),
 #'          RR_true = mu1 / mu0.
-setup_count = function(p0, p.cv, family = c("poisson", "nb"), mu0, mu1,
+setup_count_cl = function(p0, p.cv, family = c("poisson", "nb"), mu0, mu1,
                        sd0 = NA, sd1 = NA, HRy = 1, sgn = 1, icc = 0,
                        ndraw = 1e6) {
   family = match.arg(family)
@@ -107,7 +107,7 @@ decide = function(est, se, test = c("superiority2", "superiority", "noninferiori
 #'
 #' @param n    Number of people.
 #' @param H    Number of hospitals (whole number >= 1).
-#' @param tau2 Variance of the log hospital effect, e.g. setup_count()$tau2.
+#' @param tau2 Variance of the log hospital effect, e.g. setup_count_cl()$tau2.
 #'             0 = no clustering (all M_h = 1).
 #' @returns data.frame(hosp, M_h): hospital ID (1..H) and that hospital's
 #'          multiplier, one row per person.
@@ -130,7 +130,7 @@ sim_cluster = function(n, H, tau2 = 0) {
 #'
 #' @param e   Propensity scores, from simulate_cohort()$e.
 #' @param M_h Hospital multiplier per person, from sim_cluster()$M_h.
-#' @param s   Setting list from setup_count() (family, mu0, mu1, HRy, sgn, p0,
+#' @param s   Setting list from setup_count_cl() (family, mu0, mu1, HRy, sgn, p0,
 #'            p.cv, c_conf, kw0, kw1).
 #' @returns data.frame(Y0, Y1): count if X = 0 and if X = 1.
 sim_po_count_cl = function(e, M_h, s) {
@@ -188,7 +188,7 @@ est_itt_ate_count_cl = function(d, fit_family = c("poisson", "nb")) {
 #' original scripts: e, X, hosp, u, Y0, Y1.
 #'
 #' @param n            Sample size.
-#' @param s            Setting list from setup_count().
+#' @param s            Setting list from setup_count_cl().
 #' @param H            Number of hospitals.
 #' @param test         "noninferiority", "superiority2", "superiority",
 #'                     "inferiority" or "equivalence" (see decide()).
@@ -238,7 +238,7 @@ if (FALSE) {
   
   ## ---- Setting from the NB script (Aim 3: discontinue vs continue antibiotics)
   set.seed(2025)
-  s_null = setup_count(p0 = 0.193, p.cv = 0.5, family = "nb",
+  s_null = setup_count_cl(p0 = 0.193, p.cv = 0.5, family = "nb",
                        mu0 = 5.95, mu1 = 3.71,
                        sd0 = 3.01, sd1 = 1.97,
                        HRy = 1.3, sgn = -1, icc = 0.01)
@@ -248,7 +248,7 @@ if (FALSE) {
   
   ## ---- Setting from the Poisson script
   set.seed(2025)
-  s_po = setup_count(p0 = 0.161, p.cv = 0.5, family = "poisson",
+  s_po = setup_count_cl(p0 = 0.161, p.cv = 0.5, family = "poisson",
                      mu0 = 1.84, mu1 = 1.65, HRy = 1.3, sgn = -1, icc = 0.01)
   
   set.seed(123)

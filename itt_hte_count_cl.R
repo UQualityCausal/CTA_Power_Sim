@@ -12,7 +12,7 @@ source("itt_ate_count_cl.R")
 #' @param e        Propensity scores, from simulate_cohort()$e.
 #' @param M_h      Hospital multiplier per person, from sim_cluster()$M_h.
 #' @param EF       0/1 effect modifier per person.
-#' @param s        Setting list from setup_count() (EF = 0 group means).
+#' @param s        Setting list from setup_count_cl() (EF = 0 group means).
 #' @param MOR      Ratio of rate ratios, EF = 1 vs EF = 0. 1 = no HTE.
 #' @param ef_ratio Main effect of EF: control-arm mean in EF = 1 divided by
 #'                 control-arm mean in EF = 0. 1 = EF does not shift baseline.
@@ -78,7 +78,7 @@ est_itt_hte_count_cl = function(d, fit_family = c("poisson", "nb")) {
 #' Random draws follow the order: e, X, hosp, u, EF, Y0, Y1.
 #'
 #' @param n            Sample size.
-#' @param s            Setting list from setup_count() (EF = 0 group).
+#' @param s            Setting list from setup_count_cl_cl() (EF = 0 group).
 #' @param H            Number of hospitals.
 #' @param pi_ef        Pr(EF = 1), e.g. 0.2 for a 20% subgroup.
 #' @param MOR          True ratio of rate ratios (EF = 1 vs EF = 0).
@@ -143,7 +143,7 @@ if (FALSE) {
 
   ## ---- 1. Type I error: MOR = 1 -> power should be close to alpha
   set.seed(2025)
-  s_nb = setup_count(p0 = 0.193, p.cv = 0.5, family = "nb",
+  s_nb = setup_count_cl(p0 = 0.193, p.cv = 0.5, family = "nb",
                      mu0 = 5.95, mu1 = 3.71, sd0 = 3.01, sd1 = 1.97,
                      HRy = 1.3, sgn = -1, icc = 0.01)
   set.seed(1)

@@ -1,6 +1,7 @@
 ## Power for HTE on a time-to-event outcome: ratio of treatment hazard ratios
-## between levels of a binary effect modifier (X:EF interaction), IPTW Cox.
-source("power_core.R")
+## between levels of a binary effect modifier (X:EF interaction), IPTW Cox
+## model with a robust SE. Exponential event times; the only censoring is
+## administrative, at Ymax.
 source("itt_ate_surv.R")
 
 #' Simulate potential survival outcomes with effect modification
@@ -8,18 +9,20 @@ source("itt_ate_surv.R")
 #' Exponential event times with log hazard
 #'   untreated: mu0 = b0 + b1 * ps_cv(e, p0, p.cv) + log(HR_ef) * EF
 #'   treated:   mu1 = mu0 + log(TOR) + log(MOR) * EF
-#' so the treatment HR is TOR when EF = 0 and TOR * MOR when EF = 1.
-#' Times are censored at Ymax.
+#' so the conditional treatment HR is TOR when EF = 0 and TOR * MOR when EF = 1.
+#' Times are administratively censored at Ymax (no other censoring).
 #'
 #' @param e     Propensity scores, from simulate_cohort()$e.
 #' @param EF    Effect modifier, 0/1 per person, from sim_ef().
-#' @param py0   Untreated event rate by Ymax, at PS = p0 and EF = 0.
+#' @param py0   Cumulative risk by Ymax if untreated, at the average PS
+#'              (e = p0), EF = 0 group.
 #' @param Ymax  Follow-up length = administrative censoring time (years).
 #' @param HRy   Confounding: HR per 1-CV increase in the PS,
 #'              untreated. 1 = no confounding.
-#' @param TOR   Treatment hazard ratio in the EF = 0 group.
-#' @param MOR   Ratio of treatment HRs, EF = 1 vs EF = 0 (the tested quantity).
-#' @param HR_ef EF's own effect on the hazard, untreated. 1 = none.
+#' @param TOR   Conditional treatment HR in the EF = 0 group.
+#' @param MOR   Ratio of conditional treatment HRs, EF = 1 vs EF = 0 (tested).
+#' @param HR_ef EF's own effect on the hazard, untreated. 1 = none. Changes
+#'              power (more events in the EF = 1 group -> smaller SE).
 #' @param p0    Mean propensity score (same as in get_beta_params()).
 #' @param p.cv  Propensity score CV (same as in get_beta_params()).
 #' @returns data.frame(Y0, D0, Y1, D1): time (capped at Ymax) and event
@@ -38,7 +41,7 @@ sim_po_surv_hte = function(e, EF, py0, Ymax, HRy = 1, TOR, MOR, HR_ef = 1,
   D0  = as.integer(Y0 < Ymax)
   
   # treated
-  mu1 = mu0 + log(TOR) + log(MOR) * EF   # treated: effect depends on EF # mu0 + treatment effect that depends on EF
+  mu1 = mu0 + log(TOR) + log(MOR) * EF   # treated: effect depends on EF
   Y1  = -log(runif(n)) / exp(mu1)
   D1  = as.integer(Y1 < Ymax)
   
@@ -55,8 +58,8 @@ sim_po_surv_hte = function(e, EF, py0, Ymax, HRy = 1, TOR, MOR, HR_ef = 1,
 #' @param d Data frame from combine_outcomes(), with Y (follow-up time),
 #'          D (event indicator), X (0/1 treatment), EF (0/1 effect modifier)
 #'          and W (IPT weight).
-#' @returns c(est = , se = ): estimated log ratio of HRs and its robust SE.
-#'          exp(est) is the ratio of HRs (MOR).
+#' @returns c(est = , se = ): estimated log ratio of marginal HRs (X:EF) and
+#'          its robust SE. exp(est) estimates the marginal MOR.
 est_itt_hte_surv = function(d) {
   fit = survival::coxph(survival::Surv(Y, D) ~ X * EF, data = d,
                         weights = W, robust = TRUE)
@@ -75,21 +78,24 @@ est_itt_hte_surv = function(d) {
 #' @param pi_ef     Proportion of people with EF = 1, strictly between 0 and 1.
 #' @param p0        Expected proportion treated (allocation; 1:3 -> 1/4).
 #' @param p.cv      Propensity score CV.
-#' @param py0       Untreated event rate by Ymax, at PS = p0 and EF = 0.
+#' @param py0       Cumulative risk by Ymax if untreated, at the average PS,
+#'                  EF = 0 group.
 #' @param Ymax      Follow-up length = administrative censoring time (years).
 #' @param HRy       Confounding: HR per 1-CV increase in the PS,
 #'                  untreated. 1 = no confounding.
-#' @param TOR       Treatment hazard ratio in the EF = 0 group.
-#' @param MOR       Ratio of treatment HRs, EF = 1 vs EF = 0 (tested).
+#' @param TOR       Conditional treatment HR in the EF = 0 group.
+#' @param MOR       Ratio of conditional treatment HRs, EF = 1 vs EF = 0 (tested).
 #' @param HR_ef     EF's own effect on the hazard, untreated. 1 = none.
+#'                  Changes power.
 #' @param nsim      Number of simulated datasets.
 #' @param alpha_adj Two-sided significance level after multiplicity adjustment.
 #' @returns One-row data.frame:
 #'   mean_est       average log(MOR) estimate
-#'   marg_MOR       exp(mean_est)
+#'   marg_MOR       exp(mean_est): the marginal ratio of HRs = the detectable
+#'                  effect to report (~ MOR when HRy = 1)
 #'   emp_sd         SD of the log(MOR) estimates (the true SE)
 #'   mean_se        average robust SE (close to emp_sd = SE is accurate)
-#'   mean_events    average total events per dataset
+#'   mean_events    average total events (both arms) per dataset
 #'   mean_events11  average events among treated with EF = 1 (smallest cell)
 #'   power          share of datasets that reject H0: MOR = 1
 power_itt_hte_surv = function(n, pi_ef, p0, p.cv, py0, Ymax, HRy = 1, TOR, MOR,
@@ -149,14 +155,14 @@ power_itt_hte_surv(n = n, pi_ef = 0.5, p0 = p0, p.cv = p.cv, py0 = py0,
                    nsim = 500, alpha_adj = 0.05)
 #   mean_events11 ~179   mean_se ~0.14   power ~0.80
 
-## 5. With confounding (KP's old HRy = 1.3)
+## 4. With confounding (KP's old HRy = 1.3)
 set.seed(4)
 power_itt_hte_surv(n = n, pi_ef = 0.2, p0 = p0, p.cv = p.cv, py0 = py0,
                    Ymax = Ymax, HRy = 1.3, TOR = 0.85, MOR = 1.5,
                    nsim = 500, alpha_adj = 0.05)
-#   marg_MOR ~1.5   power about the same as example 2
+#   marg_MOR ~1.5   mean_events11 ~73   power ~0.70 (about the same as example 2)
 
-## 6. Power curve over MOR (to find the MOR with 80% power)
+## 5. Power curve over MOR (to find the MOR with 80% power)
 mors  = c(1.3, 1.4, 1.5, 1.6, 1.7)
 curve = do.call(rbind, lapply(mors, function(m) {
   set.seed(5)
@@ -166,4 +172,5 @@ curve = do.call(rbind, lapply(mors, function(m) {
                            MOR = m, nsim = 200, alpha_adj = 0.05))
 }))
 curve[, c("MOR", "marg_MOR", "mean_events11", "power")]
+#   power ~0.34, 0.53, 0.69, 0.82, 0.90  -> 80% power at MOR ~1.6
 }
