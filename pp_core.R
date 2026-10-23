@@ -105,30 +105,22 @@ wt_pp = function(pp, df_time = 4, trunc = 0.99, cens = TRUE) {
   if (cens){
     den_c = glm(update(tf("+ L0 + Lprev + X"), C_k ~ .), binomial, data = pp)
     num_c = glm(update(tf(""), C_k ~ .), binomial, data = pp)
-    r_c = (1 - fitted(num_c)) / (1 - fitted(den_c))
+    r_c = (1 - fitted(num_c)) / (1 - fitted(den_c)) # P(uncensored): model predicts P(censored)
   }
   sub = pp$C_k == 0 & pp$D_k == 0
   den_a = glm(update(tf("+ L0 + Lprev + X"), A_k ~ .), binomial, data = pp[sub,])
   num_a = glm(update(tf(""), A_k ~ .), binomial, data = pp[sub,])
   r_a = rep(1, nrow(pp))
-  r_a[sub] = (1 - fitted(num_a)) / (1 - fitted(den_a))
+  r_a[sub] = fitted(num_a) / fitted(den_a) # P(adherent): model predicts P(adherent)
   
   # final weight = W x cumulative censoring ratio x cumulative adherence ratio
   sw = pp$W * ave(r_c, pp$id, FUN = cumprod) * ave(r_a, pp$id, FUN = cumprod)
+  attr(pp, "max_sw") = max(sw)          # largest weight before truncation
   # truncate at the trunc quantile
   cap = quantile(sw, trunc)
   pp$sw = pmin(sw, cap)
   pp
 }
-
-po = sim_po_surv(co$e, py0, Ymax, HRy, TOR, p0, p.cv)
-# Y0, D0  time and event indicator if untreated
-# Y1, D1  time and event indicator if treated
-pd = sim_po_surv(co$e, py_death, Ymax, HRy = 1, TOR = pp_death, p0, p.cv)
-names(pd) = c("dt0", "dD0", "dt1", "dD1")
-d = combine_outcomes(co, cbind(po, pd))
-# combine_outcomes() finds the pairs Y0/Y1, D0/D1, dt0/dt1, dD0/dD1
-# and creates Y, D, dt, dD from the arm each person is in
 
 # Examples
 if (FALSE){
