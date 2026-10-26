@@ -40,8 +40,10 @@ setup_count = function(p0, p.cv, family = c("poisson", "nb"), mu0, mu1,
   lp  = function(x) log(HRy) * ps_cv(x, p0, p.cv)
   Ebeta = function(f) integrate(function(x) f(x) * dbeta(x, bp["alpha"], bp["beta"]),
                                 0, 1)$value
-  c_conf = log(Ebeta(function(x) exp(lp(x))))
-  EM2    = Ebeta(function(x) exp(2 * (lp(x) - c_conf)))
+  if (p.cv == 0) { c_conf = 0; EM2 = 1 } else {           # RCT: multiplier is 1
+    c_conf = log(Ebeta(function(x) exp(lp(x))))
+    EM2    = Ebeta(function(x) exp(2 * (lp(x) - c_conf)))
+  }
 
   # 3. NB within-person dispersion so total SD matches sd0 / sd1
   #    Var(Y) = mu + mu^2 * [(1 + kw) * EM2 - 1]

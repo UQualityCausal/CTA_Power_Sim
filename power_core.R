@@ -10,8 +10,8 @@
 #' possible. 
 #' 
 #' @param p0   Mean propensity score (expected proportion treated), in (0, 1).
-#' @param p.cv Coefficient of variation of the propensity score, >0.  
-#'             Must be below sqrt((1-p0) / p0).
+#' @param p.cv Coefficient of variation of the propensity score, >= 0; 
+#'             0 = randomized (every PS = p0). Must be below sqrt((1-p0) / p0).
 #' @returns Named numeric vector c(alpha = , beta = ). 
 #' @examples 
 #' # 1/3 treated, moderate variation in the propensity score
@@ -19,7 +19,8 @@
 get_beta_params = function(p0, p.cv){
   # input checks
   if (p0 <= 0 || p0 >= 1) stop("p0 must be strictly between 0 and 1")
-  if (p.cv <= 0) stop("p.cv must be > 0")
+  if (p.cv < 0) stop("p.cv must be >= 0")
+  if (p.cv == 0) return(c(alpha = p0 * 1e12, beta = (1 - p0) * 1e12))  # RCT: e = p0 for everyone
   
   max_cv = sqrt((1-p0)/p0)
   if (p.cv >= max_cv)
@@ -79,8 +80,9 @@ simulate_cohort = function(n, alpha, beta, estimand = c("ATE", "ATT")){
 #' @param e    Propensity scores.
 #' @param p0   Mean propensity score (same value given to get_beta_params()).
 #' @param p.cv Propensity score CV (same value given to get_beta_params()).
-#' @returns Numeric vector (e - p0) / p.cv; mean 0, SD = p0.
+#' @returns Numeric vector (e - p0) / p.cv; mean 0, SD = p0; all 0 when p.cv = 0.
 ps_cv = function(e, p0, p.cv) {
+  if (p.cv == 0) return(rep(0, length(e)))   # RCT: no PS variation, no confounding
   (e - p0) / p.cv
 }
 
