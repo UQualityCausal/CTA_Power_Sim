@@ -6,7 +6,16 @@ Each script simulates cohorts with propensity scores, treatment, and outcomes; e
 
 ## Scenarios
 
-Scripts are organized by **design** (ITT = intention-to-treat; PP = per-protocol), **estimand** (ATE = average treatment effect; HTE = difference in treatment effects between levels of a binary effect modifier, the X × EF interaction), and **outcome**.
+Scripts are organized by **effect** (ITT = intention-to-treat, the effect of initiating a strategy; PP = per-protocol, the effect of adhering to it), **estimand** (ATE = average treatment effect; HTE = difference in treatment effects between levels of a binary effect modifier, the X × EF interaction), and **outcome**.
+
+**Study design** (randomized or observational) is set by arguments, not by file: every script handles both.
+
+| Study design | Set | Propensity score | Confounding |
+|------------------|------------------|------------------|------------------|
+| Observational | `p.cv > 0` | varies around `p0` | `HRy` (or `conf`) applies |
+| Randomized trial, or cloned strategies | `p.cv = 0` | equals `p0` for everyone (allocation: 0.5 for 1:1 or cloning, 1/3 for 1:2) | none; `HRy` and `conf` are ignored |
+
+In a randomized design the weights are constant, so IPTW gives the same estimate as the unweighted analysis. Per-protocol scripts still apply adherence and censoring weights, since deviation after randomization is not randomized.
 
 | Outcome | Effect measure | ATE | HTE |
 |------------------|------------------|------------------|------------------|
@@ -73,11 +82,9 @@ Per-protocol (PP) effects compare strategies as if everyone adhered for the whol
 3.  **Weights** (`wt_pp()`). Pooled logistic models for remaining uncensored and for remaining adherent. Denominator: time spline + `L0` + `Lprev` + `X`; numerator: time spline only. The num/den ratios are multiplied over intervals within person, times the baseline IPTW, then truncated (default: 99th percentile).
 4.  **Outcome model.** Weighted pooled logistic `Y_k ~ ns(time) + X` (`+ X:EF` for HTE) on the intervals still under protocol, with an SE clustered by person.
 
-**Defaults** reproduce the original SMBPT script's covariate, censoring and adherence coefficients. With them, about 18% of people stay adherent through 5 years, and censoring is under 1% per interval. Change `adh` / `cens` to match your cohort, and check the result with `mean_adh_end`.
-
 **Assumptions to know:**
 
-- Deviation is **non-informative**: `L` drives adherence and censoring but not the outcome. The weights add realistic variance but correct no bias in this model.
+- **Baseline confounding is real; deviation after baseline is not informative.** With `p.cv > 0` and `HRy` ≠ 1, the PS drives both treatment and outcome, and the baseline IPTW removes that bias. After baseline, `L` drives adherence and censoring but not the outcome, so leaving the protocol is unrelated to outcome risk and creates no bias. The adherence and censoring weights therefore have nothing to correct here, but they add the variance a real per-protocol analysis would have.
 - Censoring and adherence in interval t depend on `Lprev`, the value of `L` entering the interval.
 - Death is treated as censoring, without its own weights.
 
@@ -103,7 +110,7 @@ IPTW `Y ~ X` estimates the **marginal** effect (population if everyone treated v
 
 ### Survival baseline
 
-`py0` is the cumulative risk by `Ymax` (by `K * dt_len` in PP scripts); it is converted to a hazard with `rate_from_risk()`: λ = −log(1 − `py0`) / `Ymax`. (The original scripts used `py0 / Ymax`, which treats `py0` as a cumulative hazard; results differ slightly from those.)
+`py0` is the cumulative risk by `Ymax` (by `K * dt_len` in PP scripts); it is converted to a hazard with `rate_from_risk()`: λ = −log(1 − `py0`) / `Ymax`.
 
 ### Naming
 
@@ -112,17 +119,6 @@ IPTW `Y ~ X` estimates the **marginal** effect (population if everyone treated v
 - PP functions: `sim_pp_surv()`, `wt_pp()`, `est_pp_<estimand>_surv()`, `power_pp_<estimand>_surv()`. Within PP code, `X` = treatment, `W` = baseline IPTW, `L` = time-varying covariate. (The original scripts used `W` for treatment and `X` for the covariate.)
 - Every function name is unique across the library: `source()` silently overwrites a function defined twice.
 - Potential outcomes are named `<name>0` / `<name>1`; `combine_outcomes()` creates `<name>`. No other column name should end in `0` or `1`.
-
-## Usage
-
-``` r
-source("itt_ate_surv.R")
-set.seed(1)
-power_itt_ate_surv(n = 2022, p0 = 1/4, p.cv = 0.25, py0 = 251/2022, Ymax = 10,
-                   HRy = 2, TOR = 0.62, nsim = 1000, alpha_adj = 0.05)
-```
-
-Run scripts from the library folder (paths in `source()` are relative), or use `here::here()`. To find the minimum detectable effect, run a grid of effect sizes and read off where power crosses 80% (or 90%); use nsim ≥ 1000 for final numbers. With nsim = 1000, the Monte Carlo SE of a power near 0.8 is about 0.013.
 
 ## Examples
 
