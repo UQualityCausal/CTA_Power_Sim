@@ -1,3 +1,6 @@
+## itt_ate_bin.R (new): power for the ITT ATE (marginal odds ratio) on a
+## binary outcome. Logistic data-generating model with a conditional
+## treatment OR; IPTW logistic regression with a robust (HC0) SE.
 source("power_core.R")
 
 #' Simulate potential binary outcomes
@@ -60,7 +63,7 @@ est_itt_ate_bin = function(d) {
 #'   TOR          input (conditional) OR
 #'   mean_est     average log OR estimate
 #'   marg_OR      exp(mean_est): the marginal OR = the detectable effect to report
-#'                (= TOR when HRy = 1; closer to 1 otherwise)
+#'                (= TOR when HRy = 1; can differ slightly otherwise)
 #'   crude_OR     exp(mean unweighted log OR): shows confounding
 #'   emp_sd       SD of the log OR estimates (the true SE)
 #'   mean_se      average robust SE (close to emp_sd = SE is accurate)

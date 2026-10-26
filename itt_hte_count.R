@@ -1,3 +1,7 @@
+## itt_hte_count.R: power for ITT HTE on a count outcome: ratio of rate
+## ratios between levels of a binary effect modifier (X:EF interaction), no
+## clustering. IPTW Poisson regression with a robust (HC0) SE.
+## mu0, mu1 (and sd0, sd1) describe the EF = 0 group.
 source("itt_ate_count.R")
 
 #' Simulate potential count outcomes with a binary effect modifier

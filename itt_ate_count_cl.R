@@ -1,3 +1,7 @@
+## itt_ate_count_cl.R: power for the ITT ATE (rate ratio) on a count
+## outcome clustered by hospital. IPTW Poisson or NB regression with a
+## hospital-clustered robust SE; superiority, non-inferiority, inferiority
+## or equivalence tests via decide().
 source("power_core.R")
 
 #' Per-setting constants for the count-outcome simulation

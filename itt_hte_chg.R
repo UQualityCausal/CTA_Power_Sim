@@ -1,6 +1,6 @@
-## Power for the HTE on change in continuous variable (e.g., blood biomarker),
-## baseline to one follow-up
-source("power_core.R")
+## itt_hte_chg.R: power for ITT HTE on change in a continuous variable:
+## difference in treatment effects between levels of a binary effect
+## modifier (X:EF interaction), IPTW linear regression, design-based SE.
 source("itt_ate_chg.R")
 
 #' Simulate potential outcomes for the change score, with effect modification
@@ -58,9 +58,9 @@ est_itt_hte_chg = function(d) {
 #' @param p0        Expected proportion treated (allocation; 1:2 -> 1/3).
 #' @param p.cv      Propensity score CV.
 #' @param sd_chg    SD of the change (original units), from sd_change().
-#' @param conf      Confounding: extra change per 1-CV increase in the PS, untreated
+#' @param conf      Confounding: extra change per 1-CV increase in the PS, in both arms
 #'                  (original units).
-#' @param delta     True treatment effect on the change in the EF = 0 group. (original units).
+#' @param delta     True treatment effect on the change in the EF = 0 group. (original units)
 #' @param delta_mod Extra treatment effect in the EF = 1 group (original units):
 #'                  the difference in effects being tested.
 #' @param b_ef      Extra untreated change for EF = 1 (original units).

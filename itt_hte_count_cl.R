@@ -1,4 +1,7 @@
-source("power_core.R")
+## itt_hte_count_cl.R: power for ITT HTE on a count outcome clustered by
+## hospital: ratio of rate ratios between levels of a binary effect modifier
+## (X:EF interaction). IPTW Poisson or NB regression with a hospital-clustered
+## robust SE; tests via decide(). mu0, mu1 describe the EF = 0 group.
 source("itt_ate_count_cl.R")
 
 #' Simulate potential count outcomes with a binary effect modifier
@@ -78,7 +81,7 @@ est_itt_hte_count_cl = function(d, fit_family = c("poisson", "nb")) {
 #' Random draws follow the order: e, X, hosp, u, EF, Y0, Y1.
 #'
 #' @param n            Sample size.
-#' @param s            Setting list from setup_count_cl_cl() (EF = 0 group).
+#' @param s            Setting list from setup_count_cl() (EF = 0 group).
 #' @param H            Number of hospitals.
 #' @param pi_ef        Pr(EF = 1), e.g. 0.2 for a 20% subgroup.
 #' @param MOR          True ratio of rate ratios (EF = 1 vs EF = 0).
@@ -150,7 +153,7 @@ if (FALSE) {
   power_itt_hte_count_cl(n = 3908, s = s_nb, H = 69, pi_ef = 0.3, MOR = 1,
                       nsim = 1000)
 
-  ## ---- 2. Power across a grid of MORs (NB setting from ate_count.R)
+  ## ---- 2. Power across a grid of MORs (NB setting from itt_ate_count_cl.R)
   MORs = c(0.80, 0.85, 0.90)
   pow = do.call(rbind, lapply(MORs, function(m) {
     set.seed(1)

@@ -1,7 +1,8 @@
-## Power for per-protocol HTE on a time-to-event outcome: ratio of PP hazard
-## ratios between levels of a binary effect modifier (X:EF interaction).
-## Artificial censoring at non-adherence, stabilized IP weights, weighted
-## pooled logistic regression with a person-clustered SE.
+## pp_hte_surv.R: power for per-protocol HTE on a time-to-event outcome:
+## ratio of PP hazard ratios between levels of a binary effect modifier
+## (X:EF interaction). Artificial censoring at non-adherence, stabilized IP
+## weights, weighted pooled logistic regression with a person-clustered SE.
+
 source("itt_hte_surv.R")   # sim_po_surv_hte(); via itt_ate_surv.R: sim_po_surv(), power_core.R
 source("pp_core.R")        # sim_pp_surv(), wt_pp()
 
@@ -115,63 +116,60 @@ power_pp_hte_surv = function(n, pi_ef, p0, p.cv, py0, HRy = 1, TOR, MOR, HR_ef =
 
 # Examples
 if (FALSE){
-  # Examples
-  if (FALSE){
-    ## Shared settings: 2,000 people, 20% treated, 30% with EF = 1,
-    ## 20% 5-year outcome risk untreated, 12% 5-year death risk;
-    ## original script's covariate, censoring, adherence (~18% adherent at 5 y)
-    n = 2000; pi_ef = 0.3; p0 = 0.2; p.cv = 0.25; py0 = 0.2; HRy = 2; py_death = 0.12
-    
-    ## 1. No effect modification: power should be about alpha_adj
-    set.seed(1)
-    power_pp_hte_surv(n, pi_ef, p0, p.cv, py0, HRy, TOR = 0.8, MOR = 1,
-                      py_death = py_death, nsim = 300)
-    #   marg_MOR ~1.00   HR_ef0 ~ HR_ef1 ~0.80   emp_sd ~ mean_se ~0.42
-    #   mean_events11 ~11   power ~0.05  
-    
-    ## 2. Basic call: MOR = 0.5 (HR 0.8 in EF = 0, 0.4 in EF = 1)
-    set.seed(2)
-    power_pp_hte_surv(n, pi_ef, p0, p.cv, py0, HRy, TOR = 0.8, MOR = 0.5,
-                      py_death = py_death, nsim = 300)
-    #   marg_MOR ~0.47   HR_ef0 ~0.78   HR_ef1 ~0.37   mean_se ~0.54
-    #   mean_events11 ~6   power ~0.25
-    
-    ## 3. A balanced modifier gives more power (compare with example 2)
-    set.seed(3)
-    power_pp_hte_surv(n, pi_ef = 0.5, p0, p.cv, py0, HRy, TOR = 0.8, MOR = 0.5,
-                      py_death = py_death, nsim = 300)
-    #   mean_events11 ~9   mean_se ~0.46   power ~0.39
-    
-    ## 4. HR_ef changes power: more events in EF = 1 (compare with example 2)
-    set.seed(4)
-    power_pp_hte_surv(n, pi_ef, p0, p.cv, py0, HRy, TOR = 0.8, MOR = 0.5, HR_ef = 2,
-                      py_death = py_death, nsim = 300)
-    #   mean_events11 ~11   mean_se ~0.41   power ~0.41
-    
-    ## 5. Full adherence, no censoring: PP should match ITT
-    set.seed(5)
-    power_pp_hte_surv(n, pi_ef, p0, p.cv, py0, HRy, TOR = 0.8, MOR = 0.5,
-                      py_death = py_death, cens = NULL,
-                      adh = list(b0 = 20, bL = 0, bX = 0), nsim = 300)
-    #   marg_MOR ~0.48   mean_se ~0.40   mean_events ~354   power ~0.47
-    set.seed(5)
-    power_itt_hte_surv(n, pi_ef, p0, p.cv, py0, Ymax = 5, HRy = HRy,
-                       TOR = 0.8, MOR = 0.5, nsim = 300)
-    #   marg_MOR ~0.48   mean_se ~0.38   mean_events ~378   power ~0.47
-    #   (PP has slightly fewer events: death ends follow-up there)
-    
-    ## 6. Power curve over MOR
-    mors  = c(0.3, 0.4, 0.5, 0.6)
-    curve = do.call(rbind, lapply(mors, function(m) {
-      set.seed(6)
-      power_pp_hte_surv(n, pi_ef, p0, p.cv, py0, HRy, TOR = 0.8, MOR = m,
-                        py_death = py_death, nsim = 200)
-    }))
-    curve[, c("MOR", "marg_MOR", "mean_events11", "mean_se", "power")]
-    #   power ~0.50, 0.32, 0.25, 0.15
-    #   Note marg_MOR ~0.13 at MOR = 0.3: with only ~3-7 events in the treated
-    #   EF = 1 cell, strong effects are estimated with large small-sample bias.
-    #   n = 2,000 is too small for PP HTE with this adherence; increase n until
-    #   mean_events11 is at least ~50 before using results.
-  }
+  ## Shared settings: 2,000 people, 20% treated, 30% with EF = 1,
+  ## 20% 5-year outcome risk untreated, 12% 5-year death risk;
+  ## original script's covariate, censoring, adherence (~18% adherent at 5 y)
+  n = 2000; pi_ef = 0.3; p0 = 0.2; p.cv = 0.25; py0 = 0.2; HRy = 2; py_death = 0.12
+  
+  ## 1. No effect modification: power should be about alpha_adj
+  set.seed(1)
+  power_pp_hte_surv(n, pi_ef, p0, p.cv, py0, HRy, TOR = 0.8, MOR = 1,
+                    py_death = py_death, nsim = 300)
+  #   marg_MOR ~1.00   HR_ef0 ~ HR_ef1 ~0.80   emp_sd ~ mean_se ~0.42
+  #   mean_events11 ~11   power ~0.05  
+  
+  ## 2. Basic call: MOR = 0.5 (HR 0.8 in EF = 0, 0.4 in EF = 1)
+  set.seed(2)
+  power_pp_hte_surv(n, pi_ef, p0, p.cv, py0, HRy, TOR = 0.8, MOR = 0.5,
+                    py_death = py_death, nsim = 300)
+  #   marg_MOR ~0.47   HR_ef0 ~0.78   HR_ef1 ~0.37   mean_se ~0.54
+  #   mean_events11 ~6   power ~0.25
+  
+  ## 3. A balanced modifier gives more power (compare with example 2)
+  set.seed(3)
+  power_pp_hte_surv(n, pi_ef = 0.5, p0, p.cv, py0, HRy, TOR = 0.8, MOR = 0.5,
+                    py_death = py_death, nsim = 300)
+  #   mean_events11 ~9   mean_se ~0.46   power ~0.39
+  
+  ## 4. HR_ef changes power: more events in EF = 1 (compare with example 2)
+  set.seed(4)
+  power_pp_hte_surv(n, pi_ef, p0, p.cv, py0, HRy, TOR = 0.8, MOR = 0.5, HR_ef = 2,
+                    py_death = py_death, nsim = 300)
+  #   mean_events11 ~11   mean_se ~0.41   power ~0.41
+  
+  ## 5. Full adherence, no censoring: PP should match ITT
+  set.seed(5)
+  power_pp_hte_surv(n, pi_ef, p0, p.cv, py0, HRy, TOR = 0.8, MOR = 0.5,
+                    py_death = py_death, cens = NULL,
+                    adh = list(b0 = 20, bL = 0, bX = 0), nsim = 300)
+  #   marg_MOR ~0.48   mean_se ~0.40   mean_events ~354   power ~0.47
+  set.seed(5)
+  power_itt_hte_surv(n, pi_ef, p0, p.cv, py0, Ymax = 5, HRy = HRy,
+                     TOR = 0.8, MOR = 0.5, nsim = 300)
+  #   marg_MOR ~0.48   mean_se ~0.38   mean_events ~378   power ~0.47
+  #   (PP has slightly fewer events: death ends follow-up there)
+  
+  ## 6. Power curve over MOR
+  mors  = c(0.3, 0.4, 0.5, 0.6)
+  curve = do.call(rbind, lapply(mors, function(m) {
+    set.seed(6)
+    power_pp_hte_surv(n, pi_ef, p0, p.cv, py0, HRy, TOR = 0.8, MOR = m,
+                      py_death = py_death, nsim = 200)
+  }))
+  curve[, c("MOR", "marg_MOR", "mean_events11", "mean_se", "power")]
+  #   power ~0.50, 0.32, 0.25, 0.15
+  #   Note marg_MOR ~0.13 at MOR = 0.3: with only ~3-7 events in the treated
+  #   EF = 1 cell, strong effects are estimated with large small-sample bias.
+  #   n = 2,000 is too small for PP HTE with this adherence; increase n until
+  #   mean_events11 is at least ~50 before using results.
 }

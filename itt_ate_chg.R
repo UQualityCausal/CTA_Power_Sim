@@ -1,5 +1,6 @@
-## Power for the ATE on change in continuous variable (e.g., blood biomarker),
-## baseline to one follow-up
+## itt_ate_chg.R: power for the ITT ATE on change in a continuous variable
+## (e.g. a blood biomarker), baseline to one follow-up.
+## IPTW linear regression (survey::svyglm) with a design-based SE.
 source("power_core.R")
 
 #' SD of the change score (follow-up - baseline)
@@ -69,7 +70,7 @@ est_itt_ate_chg=function(d){
 #' @param p0        Expected proportion treated (allocation; 1:2 -> 1/3).
 #' @param p.cv      Propensity score CV.
 #' @param sd_chg    SD of the change (original units), from sd_change().
-#' @param conf      Confounding: extra change for a 1-CV higher PS, untreated
+#' @param conf      Confounding: extra change for a 1-CV higher PS, in both arms
 #'                  (original units).
 #' @param delta     True treatment effect on the change (original units).
 #' @param nsim      Number of simulated datasets.

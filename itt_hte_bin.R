@@ -1,5 +1,6 @@
-## Power for HTE on a binary outcome: ratio of treatment ORs between levels of
-## a binary effect modifier (X:EF interaction), IPTW logistic regression.
+## itt_hte_bin.R: power for ITT HTE on a binary outcome: ratio of treatment
+## ORs between levels of a binary effect modifier (X:EF interaction), IPTW
+## logistic regression with a robust (HC0) SE.
 source("itt_ate_bin.R")
 
 #' Simulate potential binary outcomes with effect modification

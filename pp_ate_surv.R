@@ -1,3 +1,8 @@
+## pp_ate_surv.R: power for the per-protocol ATE (hazard ratio) on a
+## time-to-event outcome: artificial censoring at non-adherence, stabilized
+## IP weights for censoring and adherence (times baseline IPTW), weighted
+## pooled logistic regression with a person-clustered SE.
+
 source("itt_ate_surv.R")   # sim_po_surv(), rate_from_risk(), power_core.R
 source("pp_core.R")        # sim_pp_surv(), wt_pp()
 
@@ -51,11 +56,11 @@ est_pp_ate_surv = function(pp, df_time = 4) {
 #'   mean_est      average log PP HR estimate
 #'   marg_HR       exp(mean_est): the detectable effect to report
 #'   emp_sd        SD of the estimates (at the simulated n)
-#'   mean_se       average clustered SE, scaled by 1/sqrt(fold)
+#'   mean_se       average clustered SE
 #'   mean_events   average number of events counted under protocol
 #'   mean_adh_end  average share of people adherent through all K intervals
 #'   mean_max_sw   average largest weight (before truncation)
-#'   power         share of datasets that reject H0: HR = 1 (with scaled SE)
+#'   power         share of datasets that reject H0: HR = 1
 power_pp_ate_surv = function(n, p0, p.cv, py0, HRy = 1, TOR,
                              K = 10, dt_len = 0.5, py_death, pp_death = 1,
                              Lproc = list(mean0 = 183, sd0 = 43, a = 2.5, rho = 0.9,

@@ -1,7 +1,7 @@
-## Power for HTE on a time-to-event outcome: ratio of treatment hazard ratios
-## between levels of a binary effect modifier (X:EF interaction), IPTW Cox
-## model with a robust SE. Exponential event times; the only censoring is
-## administrative, at Ymax.
+## itt_hte_surv.R: power for ITT HTE on a time-to-event outcome: ratio of
+## treatment hazard ratios between levels of a binary effect modifier (X:EF
+## interaction), IPTW Cox model with a robust SE. Exponential event times;
+## the only censoring is administrative, at Ymax.
 source("itt_ate_surv.R")
 
 #' Simulate potential survival outcomes with effect modification

@@ -1,4 +1,7 @@
-## Defines functions only: no runs, no seeds, no file output.
+## pp_core.R: shared functions for per-protocol (PP) power
+## simulations: person-period data (sim_pp_surv) and stabilized censoring /
+## adherence weights (wt_pp). Defines functions only: no runs, no seeds,
+## no file output.
 ## Naming: X = treatment, W = baseline IPTW, L = time-varying covariate.
 
 #' Build person-period data for a per-protocol analysis

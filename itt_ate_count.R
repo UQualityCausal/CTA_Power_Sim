@@ -1,3 +1,6 @@
+## itt_ate_count.R: power for the ITT ATE (rate ratio) on a count
+## outcome, Poisson or negative binomial data, no clustering. IPTW Poisson
+## regression with a robust (HC0) SE, valid for NB data (saturated model).
 source("power_core.R")
 
 #' Per-setting constants for the count-outcome simulation

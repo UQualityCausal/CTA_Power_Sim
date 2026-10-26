@@ -1,6 +1,6 @@
-## Power for the ATE (marginal hazard ratio) on a time-to-event outcome,
-## IPTW Cox model with a robust SE. Exponential event times; the only
-## censoring is administrative, at Ymax.
+## itt_ate_surv.R: power for the ITT ATE (marginal hazard ratio) on a
+## time-to-event outcome. IPTW Cox model with a robust SE. Exponential event
+## times; the only censoring is administrative, at Ymax.
 source("power_core.R")
 
 #' Hazard rate from cumulative risk (exponential model)
