@@ -98,30 +98,32 @@ sim_pp_surv = function(d, K, dt_len, Lproc, cens = NULL, adh) {
 #'
 #' @param pp      Long data from sim_pp_surv(), sorted by id and time.
 #' @param df_time Degrees of freedom for the natural spline in time.
-#' @param trunc   Truncation quantile for the final weight (e.g. 0.99); 1 = none.
-#' @param cens    TRUE to fit censoring weights (FALSE if there is no censoring;
-#'                the model is unstable when censoring is ~0).
-#' @returns pp with column sw (final weight).
-wt_pp = function(pp, df_time = 4, trunc = 0.99, cens = TRUE) {
+#' @param trunc   Lower and upper truncation quantiles for the final weight,
+#'                e.g. c(0.01, 0.99); c(0, 1) = none. A single number (e.g.
+#'                0.99) is read as c(0, 0.99), upper truncation only.
+#' @param num     Extra numerator terms, as a formula string (e.g. "+ X").
+#'                Only variables that are also in the outcome model. "" = time only.
+wt_pp = function(pp, df_time = 4, trunc = c(0.01, 0.99), cens = TRUE, num = "") {
+  if (length(trunc) == 1) trunc = c(0, trunc)          # old calls: upper only
   tf = function(rhs) as.formula(paste("~ splines::ns(time, df =", df_time, ")", rhs))
   r_c = rep(1, nrow(pp))
   if (cens){
     den_c = glm(update(tf("+ L0 + Lprev + X"), C_k ~ .), binomial, data = pp)
-    num_c = glm(update(tf(""), C_k ~ .), binomial, data = pp)
+    num_c = glm(update(tf(num), C_k ~ .), binomial, data = pp)
     r_c = (1 - fitted(num_c)) / (1 - fitted(den_c)) # P(uncensored): model predicts P(censored)
   }
   sub = pp$C_k == 0 & pp$D_k == 0
   den_a = glm(update(tf("+ L0 + Lprev + X"), A_k ~ .), binomial, data = pp[sub,])
-  num_a = glm(update(tf(""), A_k ~ .), binomial, data = pp[sub,])
+  num_a = glm(update(tf(num), A_k ~ .), binomial, data = pp[sub,])
   r_a = rep(1, nrow(pp))
   r_a[sub] = fitted(num_a) / fitted(den_a) # P(adherent): model predicts P(adherent)
   
   # final weight = W x cumulative censoring ratio x cumulative adherence ratio
   sw = pp$W * ave(r_c, pp$id, FUN = cumprod) * ave(r_a, pp$id, FUN = cumprod)
   attr(pp, "max_sw") = max(sw)          # largest weight before truncation
-  # truncate at the trunc quantile
-  cap = quantile(sw, trunc)
-  pp$sw = pmin(sw, cap)
+  # truncate at the trunc quantiles
+  lim = quantile(sw, trunc)
+  pp$sw = pmin(pmax(sw, lim[1]), lim[2])
   pp
 }
 
