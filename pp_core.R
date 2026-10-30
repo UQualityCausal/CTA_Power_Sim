@@ -4,6 +4,61 @@
 ## no file output.
 ## Naming: X = treatment, W = baseline IPTW, L = time-varying covariate.
 
+#' Adherence model coefficients for sim_pp_surv(), from one of three inputs
+#'
+#' Give exactly one of coef, pA or na_cum. All three are converted to the
+#' logit-scale coefficients sim_pp_surv() uses for P(adherent in an interval):
+#'   logit P(A_k = 1) = b0 + bL * L_{k-1} + bX * X
+#'
+#' @param coef     Coefficients directly: list(b0, bL, bX). Returned as is.
+#'                 Use this to make adherence depend on L.
+#' @param pA       Probability of staying adherent in one interval, by arm:
+#'                 c(arm X = 0, arm X = 1), e.g. c(0.9915, 0.9735).
+#' @param na_cum   Cumulative non-adherence by time tau, by arm:
+#'                 c(arm X = 0, arm X = 1), e.g. c(0.4, 0.8). Deviation times are
+#'                 exponential (constant hazard), so per interval
+#'                 pA = exp(-lambda * dt_len), lambda = -log(1 - na_cum) / tau.
+#' @param tau      Years by which na_cum applies (5 = by year 5; 1 = by year 1).
+#'                 Needed with na_cum only.
+#' @param dt_len   Interval length in years (same as in sim_pp_surv()). Needed
+#'                 with na_cum only.
+#' @param bL       Log odds of staying adherent per unit of L (pA, na_cum only).
+#'                 0 = adherence does not depend on L (weights ~1).
+#' @param L_center Value of L at which pA holds (e.g. Lproc$mean0), so b0 is
+#'                 shifted by -bL * L_center. Approximate when bL != 0: the
+#'                 marginal adherence then differs slightly from pA; check it
+#'                 with na_by_arm().
+#' @returns list(b0, bL, bX) to pass as adh = to sim_pp_surv().
+#' @examples
+#' set_adh(na_cum = c(0.4, 0.8), tau = 5, dt_len = 1/2)    # b0 2.95, bX -1.20
+#' set_adh(pA = c(0.9502, 0.8513))                         # same
+#' set_adh(coef = list(b0 = 0.1, bL = 0.015, bX = -0.07))  # example
+set_adh = function(coef = NULL, pA = NULL, na_cum = NULL, tau = NULL, dt_len = NULL,
+                   bL = 0, L_center = 0) {
+  given = !c(is.null(coef), is.null(pA), is.null(na_cum))
+  if (sum(given) != 1) stop("give exactly one of coef, pA, na_cum")
+  
+  # 1. Coefficients given directly: check and return
+  if (given[1]) {
+    if (!all(c("b0", "bL", "bX") %in% names(coef))) stop("coef needs b0, bL, bX")
+    return(coef[c("b0", "bL", "bX")])
+  }
+  
+  # 2. Cumulative non-adherence -> per-interval adherence (exponential)
+  if (given[3]) {
+    if (is.null(tau) || is.null(dt_len)) stop("na_cum needs tau and dt_len")
+    if (length(na_cum) != 2) stop("na_cum must be c(arm 0, arm 1)")
+    lambda = sapply(na_cum, rate_from_risk, tau = tau)   # deviation rate per year
+    pA = exp(-lambda * dt_len)                            # P(adherent) per interval
+  }
+  
+  # 3. Per-interval adherence by arm -> logit coefficients
+  if (length(pA) != 2 || any(pA <= 0 | pA >= 1)) stop("pA must be c(arm 0, arm 1), each in (0, 1)")
+  list(b0 = qlogis(pA[1]) - bL * L_center,
+       bL = bL,
+       bX = qlogis(pA[2]) - qlogis(pA[1]))
+}
+
 #' Build person-period data for a per-protocol analysis
 #'
 #' Within each interval t, in this order: censoring -> death -> adherence ->
@@ -22,8 +77,7 @@
 #'               L0 ~ N(mean0, sd0^2); a, rho, bX, sd as in the formula above.
 #' @param cens   Censoring: list(b0, bL, bX), coefficients on the logit of
 #'               being UNcensored in an interval. NULL = no censoring.
-#' @param adh    Adherence: list(b0, bL, bX), coefficients on the logit of
-#'               being adherent in an interval.
+#' @param adh    Adherence coefficients list(b0, bL, bX) from set_adh().
 #' @returns Long data.frame, one row per person per interval at risk:
 #'   id, time (1..K), X, W, L0, Lprev (L entering the interval),
 #'   C_k, D_k, A_k, Y_k (0/1 indicators for this interval).
@@ -31,7 +85,7 @@
 #' pp = sim_pp_surv(d, K = 10, dt_len = 0.5,
 #'                  Lproc = list(mean0 = 183, sd0 = 43, a = 2.5, rho = 0.9, bX = -0.5, sd = 1),
 #'                  cens  = list(b0 = 0.3, bL = 0.06, bX = -0.1),
-#'                  adh   = list(b0 = 0.1, bL = 0.015, bX = -0.07))
+#'                  adh = set_adh(coef = list(b0 = 0.1, bL = 0.015, bX = -0.07)))
 #' head(pp)
 sim_pp_surv = function(d, K, dt_len, Lproc, cens = NULL, adh) {
   n = nrow(d)
